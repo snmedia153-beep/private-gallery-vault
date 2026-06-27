@@ -1,22 +1,22 @@
 # Private Gallery Vault
 
-Private Gallery Vault is a Windows desktop application for organizing personal images, videos, documents, and archives inside a local encrypted vault. It is built with WPF and .NET, with a dark dashboard-style interface, topic folders, media previews, duplicate detection, and fast lock controls.
+Private Gallery Vault is a Windows desktop application for keeping personal media files in a local encrypted vault. It supports images, videos, documents, and archives, with topic-based organization, media preview, duplicate checks, and fast locking for sensitive moments.
 
-The project focuses on local-first privacy. Media files are encrypted before they are stored, and temporary decrypted files are cleaned up after use or when the vault is locked.
+The app is designed as a local-first tool. Files are encrypted before they are stored, and temporary decrypted files are used only when a file needs to be viewed or opened externally.
 
-## Highlights
+## Features
 
 - Local encrypted vault for personal media files
 - Topic folders with sidebar search, sorting, and custom ordering
-- Grid and list views for media and topic browsing
-- Image viewer and video viewer with zoom, pan, mute, and thumbnail tools
+- Grid and list views for browsing media and topics
+- Image and video viewer with zoom, pan, mute, and thumbnail tools
 - Drag-and-drop import with progress feedback
-- Duplicate detection based on source fingerprinting
-- Bulk topic change for selected files
+- Duplicate detection using source fingerprints
+- Bulk topic changes for selected files
 - Manual ordering by drag-and-drop or exact position input
 - Tag management, activity logs, duplicate manager, and backup tools
-- Instant lock hotkey with modifier-key combinations such as `Ctrl+Shift+X`
-- Safe handling for unusual or broken Unicode filenames
+- Instant lock hotkey using modifier-key combinations such as `Ctrl+Shift+X`
+- Stable import handling for unusual Unicode filenames
 
 ## Tech Stack
 
@@ -26,8 +26,8 @@ The project focuses on local-first privacy. Media files are encrypted before the
 | Runtime | .NET 8 Windows |
 | Language | C# |
 | Local database | SQLite via `Microsoft.Data.Sqlite` |
-| Encryption | AES-GCM for file and data encryption, PBKDF2 for password-derived key wrapping |
-| Media handling | WPF imaging, MediaElement, Windows Shell thumbnail fallback |
+| Encryption | AES-GCM for file/data encryption, PBKDF2 for password-derived key wrapping |
+| Media handling | WPF Imaging, MediaElement, Windows Shell thumbnail fallback |
 | Build | PowerShell release script, self-contained win-x64 publish |
 
 ## Project Structure
@@ -85,22 +85,16 @@ publish\win-x64\PrivateGalleryVault.exe
 - Stored media files are encrypted before being written to the vault directory.
 - Temporary decrypted files are created only when needed for viewing or external opening.
 - Temporary files are cleaned up on lock, exit, and delayed retry paths for media files that may still be held by Windows codecs.
-- This is a local desktop application; it does not require a server connection for core vault features.
+- Core vault features run locally without a server connection.
 
-## GitHub Upload Checklist
+## Files Excluded from the Repository
 
-Before pushing to a public repository, confirm that the following are not included:
+The repository should not include personal vault data or runtime output, including:
 
-- Real personal images, videos, documents, or archives
+- Personal images, videos, documents, or archives
 - Local vault database files such as `*.db` or `*.sqlite`
 - Runtime settings such as `settings.json`
 - Backup files such as `*.pgvbackup`
 - Build outputs such as `bin/`, `obj/`, and `publish/`
 
-The included `.gitignore` already excludes these files.
-
-## Suggested Repository Topics
-
-```text
-wpf, dotnet, csharp, desktop-app, sqlite, encryption, media-gallery, privacy, windows
-```
+The included `.gitignore` excludes these paths and file types.
