@@ -4,6 +4,32 @@ Private Gallery Vault is a Windows desktop application for keeping personal medi
 
 The app is designed as a local-first tool. Files are encrypted before they are stored, and temporary decrypted files are used only when a file needs to be viewed or opened externally.
 
+## Preview
+
+![Private Gallery Vault main screen](docs/screenshots/main.png)
+
+## Screenshots
+
+### Main Window
+
+![Main window](docs/screenshots/main.png)
+
+### Import Progress
+
+![Import progress](docs/screenshots/upload.png)
+
+### Image Viewer
+
+![Image viewer](docs/screenshots/imageviewer.png)
+
+### Video Viewer
+
+![Video viewer](docs/screenshots/videoviewer.png)
+
+### Settings
+
+![Settings](docs/screenshots/setting.png)
+
 ## Features
 
 - Local encrypted vault for personal media files
