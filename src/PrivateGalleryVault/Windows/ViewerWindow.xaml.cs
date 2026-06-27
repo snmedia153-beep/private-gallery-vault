@@ -1,0 +1,851 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Microsoft.Win32;
+using PrivateGalleryVault.Models;
+using PrivateGalleryVault.Services;
+
+namespace PrivateGalleryVault.Windows;
+
+public partial class ViewerWindow : Window
+{
+    private enum VideoRepeatMode
+    {
+        None,
+        Current,
+        Playlist
+    }
+
+    private readonly VaultContext _context;
+    private readonly MediaItem _item;
+    private readonly AppSettings _settings;
+    private readonly DispatcherTimer _timer;
+    private string? _tempVideoPath;
+    private bool _isPlaying;
+    private bool _isDraggingSlider;
+    private bool _isMuted;
+    private double _lastVolume = 0.75;
+
+    private double _imageZoom = 1.0;
+    private bool _isImagePanning;
+    private Point _imagePanStart;
+    private double _imageStartHorizontalOffset;
+    private double _imageStartVerticalOffset;
+
+    private double _videoZoom = 1.0;
+    private bool _isVideoPanning;
+    private Point _videoPanStart;
+    private double _videoStartX;
+    private double _videoStartY;
+    private VideoRepeatMode _repeatMode = VideoRepeatMode.None;
+
+    private bool _isFullscreen;
+    private bool _closingForVaultLock;
+    private bool _mediaDetachedForClose;
+    private WindowState _previousWindowState;
+    private WindowStyle _previousWindowStyle;
+    private ResizeMode _previousResizeMode;
+    private bool _previousTopmost;
+
+    public bool HasChanges { get; private set; }
+
+    public ViewerWindow(VaultContext context, MediaItem item)
+    {
+        InitializeComponent();
+        _context = context;
+        _item = item;
+        _settings = AppSettingsService.Load();
+        TitleText.Text = item.OriginalName;
+        MetaText.Text = $"{(item.Kind == MediaKind.Video ? "동영상" : "이미지")} · {FormatBytes(item.SizeBytes)} · {item.CreatedUtc.ToLocalTime():yyyy.MM.dd HH:mm}";
+
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _timer.Tick += Timer_Tick;
+
+        Loaded += ViewerWindow_Loaded;
+        Closing += ViewerWindow_Closing;
+        Closed += ViewerWindow_Closed;
+        KeyDown += ViewerWindow_KeyDown;
+    }
+
+    private void ViewerWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind == MediaKind.Image)
+        {
+            ShowImageViewer();
+            return;
+        }
+
+        ShowVideoViewer();
+    }
+
+    private void ShowImageViewer()
+    {
+        ImageScroll.Visibility = Visibility.Visible;
+        ImageHint.Visibility = Visibility.Visible;
+        VideoHost.Visibility = Visibility.Collapsed;
+        VideoGestureHint.Visibility = Visibility.Collapsed;
+
+        PlayButton.Visibility = Visibility.Collapsed;
+        StopButton.Visibility = Visibility.Collapsed;
+        PositionSlider.Visibility = Visibility.Collapsed;
+        TimeText.Visibility = Visibility.Collapsed;
+        MuteButton.Visibility = Visibility.Collapsed;
+        VolumeSlider.Visibility = Visibility.Collapsed;
+        RepeatButton.Visibility = Visibility.Collapsed;
+        VideoZoomOutButton.Visibility = Visibility.Collapsed;
+        VideoZoomInButton.Visibility = Visibility.Collapsed;
+
+        ImageView.Source = _context.Media.LoadImage(_item);
+        Dispatcher.BeginInvoke(new Action(FitToWindow), DispatcherPriority.Loaded);
+    }
+
+    private void ShowVideoViewer()
+    {
+        ImageScroll.Visibility = Visibility.Collapsed;
+        ImageHint.Visibility = Visibility.Collapsed;
+        VideoHost.Visibility = Visibility.Visible;
+        VideoGestureHint.Visibility = Visibility.Collapsed;
+
+        ActualSizeButton.Content = "원본 비율";
+        FitButton.Content = "화면 맞춤";
+        ZoomResetButton.Content = "100%";
+        PositionSlider.Visibility = Visibility.Visible;
+        TimeText.Visibility = Visibility.Visible;
+        PlayButton.Visibility = Visibility.Visible;
+        StopButton.Visibility = Visibility.Visible;
+        MuteButton.Visibility = Visibility.Visible;
+        VolumeSlider.Visibility = Visibility.Visible;
+        RepeatButton.Visibility = Visibility.Visible;
+        VideoZoomOutButton.Visibility = Visibility.Visible;
+        VideoZoomInButton.Visibility = Visibility.Visible;
+
+        _tempVideoPath = _context.Media.DecryptVideoToTemp(_item);
+        Player.Source = new Uri(_tempVideoPath, UriKind.Absolute);
+        Player.Volume = VolumeSlider.Value / 100.0;
+        _isMuted = _settings.PlayVideosMuted;
+        Player.IsMuted = _isMuted;
+        MuteButton.Content = _isMuted ? "🔇" : "🔊";
+        MuteButton.ToolTip = _isMuted ? "음소거 해제" : "음소거";
+        Player.Play();
+        _isPlaying = true;
+        PlayButton.Content = "Ⅱ";
+        UpdateRepeatUi();
+        _timer.Start();
+    }
+
+    public void PrepareForVaultLock()
+    {
+        _closingForVaultLock = true;
+
+        // 민감한 영상 프레임이 즉시 사라지도록 먼저 창을 숨깁니다.
+        // MediaElement 정리는 UI 스레드를 막을 수 있으므로 이 경로는 가볍게 유지합니다.
+        try { Hide(); } catch { }
+        FastDetachMediaForClose(releaseSource: false);
+    }
+
+    private void ViewerWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video)
+            return;
+
+        // MediaElement를 정리하기 전에 창을 먼저 숨겨 영상 디코더/임시 파일 해제 중 발생하는 체감 멈춤을 줄입니다.
+        try { Hide(); } catch { }
+        FastDetachMediaForClose(releaseSource: false);
+    }
+
+    private void ViewerWindow_Closed(object? sender, EventArgs e)
+    {
+        FastDetachMediaForClose(releaseSource: false);
+
+        if (!string.IsNullOrWhiteSpace(_tempVideoPath) && !_closingForVaultLock)
+            _ = DeleteTempVideoLaterAsync(_tempVideoPath);
+    }
+
+    private void FastDetachMediaForClose(bool releaseSource)
+    {
+        if (_mediaDetachedForClose)
+            return;
+
+        _mediaDetachedForClose = true;
+
+        try { _timer.Stop(); } catch { }
+        try { RepeatPopup.IsOpen = false; } catch { }
+
+        if (_item.Kind != MediaKind.Video)
+            return;
+
+        try
+        {
+            Player.IsMuted = true;
+            Player.Volume = 0;
+            Player.Pause();
+            _isPlaying = false;
+
+            // 일부 환경에서는 Stop()이 모달 영상 창 종료 시 UI 스레드를 몇 초간 막을 수 있습니다.
+            // 즉시 경로에서는 Source 해제도 미루고, 임시 파일은 지연 재시도로 정리합니다.
+            if (releaseSource)
+                Player.Source = null;
+        }
+        catch
+        {
+            // 종료 중 미디어 정리 예외는 사용자 흐름을 방해하지 않습니다.
+        }
+    }
+
+    private static async Task DeleteTempVideoLaterAsync(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return;
+
+        // UI를 막지 않도록 MediaElement와 디코더가 파일 핸들을 해제할 시간을 둡니다.
+        await Task.Delay(1200).ConfigureAwait(false);
+
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            try
+            {
+                TempFileService.TryDelete(path);
+                if (!File.Exists(path))
+                    return;
+            }
+            catch
+            {
+                // 아래 지연 재시도에서 다시 정리합니다.
+            }
+
+            await Task.Delay(700).ConfigureAwait(false);
+        }
+    }
+
+    private void ViewerWindow_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            if (_isFullscreen)
+            {
+                ToggleFullscreen();
+                return;
+            }
+            Close();
+            return;
+        }
+
+        if (e.Key == Key.Space && _item.Kind == MediaKind.Video)
+        {
+            PlayPause_Click(this, new RoutedEventArgs());
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.F11)
+        {
+            ToggleFullscreen();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.D0 || e.Key == Key.NumPad0)
+            FitToWindow();
+
+        if (e.Key == Key.D1 || e.Key == Key.NumPad1)
+            SetCurrentZoom(1.0);
+
+        if (e.Key == Key.M && _item.Kind == MediaKind.Video)
+        {
+            Mute_Click(this, new RoutedEventArgs());
+            e.Handled = true;
+        }
+    }
+
+    private void ZoomIn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind == MediaKind.Video)
+            SetVideoZoom(_videoZoom * 1.2, GetVideoCenterPoint());
+        else
+            SetImageZoom(_imageZoom * 1.2);
+    }
+
+    private void ZoomOut_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind == MediaKind.Video)
+            SetVideoZoom(_videoZoom / 1.2, GetVideoCenterPoint());
+        else
+            SetImageZoom(_imageZoom / 1.2);
+    }
+
+    private void ZoomReset_Click(object sender, RoutedEventArgs e) => SetCurrentZoom(1.0);
+
+    private void ViewReset_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind == MediaKind.Video)
+            ResetVideoView();
+        else
+            FitToWindow();
+    }
+
+    private void ActualSize_Click(object sender, RoutedEventArgs e) => SetCurrentZoom(1.0);
+    private void Fit_Click(object sender, RoutedEventArgs e) => FitToWindow();
+
+    private void SetCurrentZoom(double value)
+    {
+        if (_item.Kind == MediaKind.Video)
+            SetVideoZoom(value, GetVideoCenterPoint());
+        else
+            SetImageZoom(value);
+    }
+
+    private void FitToWindow()
+    {
+        if (_item.Kind == MediaKind.Video)
+        {
+            ResetVideoView();
+            return;
+        }
+
+        if (ImageView.Source is not BitmapSource bmp || bmp.PixelWidth <= 0 || bmp.PixelHeight <= 0)
+            return;
+
+        var vw = Math.Max(1, ImageScroll.ViewportWidth - 24);
+        var vh = Math.Max(1, ImageScroll.ViewportHeight - 24);
+        var scale = Math.Min(vw / bmp.PixelWidth, vh / bmp.PixelHeight);
+        SetImageZoom(Math.Clamp(scale, 0.05, 8.0));
+        ImageScroll.ScrollToHorizontalOffset(0);
+        ImageScroll.ScrollToVerticalOffset(0);
+    }
+
+    private void SetImageZoom(double value)
+    {
+        _imageZoom = Math.Clamp(value, 0.05, 12.0);
+        ImageScale.ScaleX = _imageZoom;
+        ImageScale.ScaleY = _imageZoom;
+        ZoomResetButton.Content = $"{_imageZoom * 100:0}%";
+    }
+
+    private void ImageScroll_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Image || ImageView.Source == null)
+            return;
+
+        var oldZoom = _imageZoom;
+        var newZoom = e.Delta > 0 ? _imageZoom * 1.18 : _imageZoom / 1.18;
+        var viewportPoint = e.GetPosition(ImageScroll);
+        SetImageZoom(newZoom);
+
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            var ratio = _imageZoom / oldZoom;
+            ImageScroll.ScrollToHorizontalOffset((ImageScroll.HorizontalOffset + viewportPoint.X) * ratio - viewportPoint.X);
+            ImageScroll.ScrollToVerticalOffset((ImageScroll.VerticalOffset + viewportPoint.Y) * ratio - viewportPoint.Y);
+        }), DispatcherPriority.Background);
+        e.Handled = true;
+    }
+
+    private void ImageScroll_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Image)
+            return;
+
+        _isImagePanning = true;
+        _imagePanStart = e.GetPosition(ImageScroll);
+        _imageStartHorizontalOffset = ImageScroll.HorizontalOffset;
+        _imageStartVerticalOffset = ImageScroll.VerticalOffset;
+        ImageScroll.Cursor = Cursors.ScrollAll;
+        ImageScroll.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void ImageScroll_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isImagePanning)
+            return;
+
+        var current = e.GetPosition(ImageScroll);
+        var dx = current.X - _imagePanStart.X;
+        var dy = current.Y - _imagePanStart.Y;
+        ImageScroll.ScrollToHorizontalOffset(_imageStartHorizontalOffset - dx);
+        ImageScroll.ScrollToVerticalOffset(_imageStartVerticalOffset - dy);
+        e.Handled = true;
+    }
+
+    private void ImageScroll_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) => EndImagePanning();
+
+    private void ImageScroll_MouseLeave(object sender, MouseEventArgs e)
+    {
+        if (_isImagePanning && e.LeftButton != MouseButtonState.Pressed)
+            EndImagePanning();
+    }
+
+    private void EndImagePanning()
+    {
+        if (!_isImagePanning) return;
+        _isImagePanning = false;
+        ImageScroll.ReleaseMouseCapture();
+        ImageScroll.Cursor = Cursors.Hand;
+    }
+
+    private Point GetVideoCenterPoint()
+    {
+        return new Point(Math.Max(1, VideoSurface.ActualWidth) / 2.0, Math.Max(1, VideoSurface.ActualHeight) / 2.0);
+    }
+
+    private void SetVideoZoom(double value, Point pivot)
+    {
+        var oldZoom = _videoZoom;
+        var newZoom = Math.Clamp(value, 1.0, 8.0);
+        if (Math.Abs(newZoom - oldZoom) < 0.0001)
+            return;
+
+        var center = GetVideoCenterPoint();
+        var contentX = (pivot.X - center.X - VideoTranslate.X) / oldZoom;
+        var contentY = (pivot.Y - center.Y - VideoTranslate.Y) / oldZoom;
+
+        _videoZoom = newZoom;
+        VideoScale.ScaleX = _videoZoom;
+        VideoScale.ScaleY = _videoZoom;
+
+        VideoTranslate.X = pivot.X - center.X - contentX * _videoZoom;
+        VideoTranslate.Y = pivot.Y - center.Y - contentY * _videoZoom;
+        ClampVideoPan();
+        UpdateVideoZoomUi();
+    }
+
+    private void ResetVideoView()
+    {
+        _videoZoom = 1.0;
+        VideoScale.ScaleX = 1.0;
+        VideoScale.ScaleY = 1.0;
+        VideoTranslate.X = 0;
+        VideoTranslate.Y = 0;
+        UpdateVideoZoomUi();
+    }
+
+    private void UpdateVideoZoomUi()
+    {
+        ZoomResetButton.Content = $"{_videoZoom * 100:0}%";
+        VideoGestureHint.Visibility = _item.Kind == MediaKind.Video && _videoZoom > 1.01 ? Visibility.Visible : Visibility.Collapsed;
+        VideoSurface.Cursor = _videoZoom > 1.01 ? Cursors.Hand : Cursors.Arrow;
+    }
+
+    private void ClampVideoPan()
+    {
+        if (_videoZoom <= 1.01)
+        {
+            VideoTranslate.X = 0;
+            VideoTranslate.Y = 0;
+            return;
+        }
+
+        var maxX = VideoSurface.ActualWidth * (_videoZoom - 1.0) / 2.0;
+        var maxY = VideoSurface.ActualHeight * (_videoZoom - 1.0) / 2.0;
+        if (maxX > 0)
+            VideoTranslate.X = Math.Clamp(VideoTranslate.X, -maxX, maxX);
+        if (maxY > 0)
+            VideoTranslate.Y = Math.Clamp(VideoTranslate.Y, -maxY, maxY);
+    }
+
+    private void VideoSurface_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video)
+            return;
+
+        var pivot = e.GetPosition(VideoSurface);
+        SetVideoZoom(e.Delta > 0 ? _videoZoom * 1.16 : _videoZoom / 1.16, pivot);
+        e.Handled = true;
+    }
+
+    private void VideoSurface_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video || _videoZoom <= 1.01)
+            return;
+
+        _isVideoPanning = true;
+        _videoPanStart = e.GetPosition(VideoSurface);
+        _videoStartX = VideoTranslate.X;
+        _videoStartY = VideoTranslate.Y;
+        VideoSurface.Cursor = Cursors.ScrollAll;
+        VideoSurface.CaptureMouse();
+        e.Handled = true;
+    }
+
+    private void VideoSurface_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isVideoPanning)
+            return;
+
+        var current = e.GetPosition(VideoSurface);
+        VideoTranslate.X = _videoStartX + current.X - _videoPanStart.X;
+        VideoTranslate.Y = _videoStartY + current.Y - _videoPanStart.Y;
+        ClampVideoPan();
+        e.Handled = true;
+    }
+
+    private void VideoSurface_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) => EndVideoPanning();
+
+    private void VideoSurface_MouseLeave(object sender, MouseEventArgs e)
+    {
+        if (_isVideoPanning && e.LeftButton != MouseButtonState.Pressed)
+            EndVideoPanning();
+    }
+
+    private void EndVideoPanning()
+    {
+        if (!_isVideoPanning) return;
+        _isVideoPanning = false;
+        VideoSurface.ReleaseMouseCapture();
+        VideoSurface.Cursor = _videoZoom > 1.01 ? Cursors.Hand : Cursors.Arrow;
+    }
+
+    private void PlayPause_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video) return;
+        if (_isPlaying)
+        {
+            Player.Pause();
+            _isPlaying = false;
+            PlayButton.Content = "▶";
+        }
+        else
+        {
+            Player.Play();
+            _isPlaying = true;
+            PlayButton.Content = "Ⅱ";
+        }
+    }
+
+    private void Stop_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video) return;
+        Player.Stop();
+        Player.Position = TimeSpan.Zero;
+        _isPlaying = false;
+        PlayButton.Content = "▶";
+        PositionSlider.Value = 0;
+    }
+
+    private void Player_MediaOpened(object sender, RoutedEventArgs e)
+    {
+        if (Player.NaturalDuration.HasTimeSpan)
+        {
+            PositionSlider.Maximum = Player.NaturalDuration.TimeSpan.TotalSeconds;
+            TimeText.Text = $"00:00 / {FormatTime(Player.NaturalDuration.TimeSpan)}";
+        }
+        ResetVideoView();
+    }
+
+    private void Player_MediaEnded(object sender, RoutedEventArgs e)
+    {
+        if (_repeatMode is VideoRepeatMode.Current or VideoRepeatMode.Playlist)
+        {
+            Player.Position = TimeSpan.Zero;
+            Player.Play();
+            _isPlaying = true;
+            PlayButton.Content = "Ⅱ";
+            return;
+        }
+
+        _isPlaying = false;
+        PlayButton.Content = "▶";
+    }
+
+    private void Timer_Tick(object? sender, EventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video || _isDraggingSlider) return;
+        if (Player.NaturalDuration.HasTimeSpan)
+        {
+            PositionSlider.Value = Player.Position.TotalSeconds;
+            TimeText.Text = $"{FormatTime(Player.Position)} / {FormatTime(Player.NaturalDuration.TimeSpan)}";
+        }
+    }
+
+    private void PositionSlider_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingSlider = true;
+    }
+
+    private void PositionSlider_PreviewMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        _isDraggingSlider = false;
+        if (_item.Kind == MediaKind.Video)
+            Player.Position = TimeSpan.FromSeconds(PositionSlider.Value);
+    }
+
+    private void PositionSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_isDraggingSlider && Player.NaturalDuration.HasTimeSpan)
+            TimeText.Text = $"{FormatTime(TimeSpan.FromSeconds(PositionSlider.Value))} / {FormatTime(Player.NaturalDuration.TimeSpan)}";
+    }
+
+    private void Mute_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video) return;
+        _isMuted = !_isMuted;
+        Player.IsMuted = _isMuted;
+        MuteButton.Content = _isMuted ? "🔇" : "🔊";
+        MuteButton.ToolTip = _isMuted ? "음소거 해제" : "음소거";
+    }
+
+    private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (Player == null) return;
+        var volume = Math.Clamp(VolumeSlider.Value / 100.0, 0.0, 1.0);
+        Player.Volume = volume;
+        if (volume > 0)
+            _lastVolume = volume;
+        if (volume <= 0.001)
+        {
+            _isMuted = true;
+            Player.IsMuted = true;
+            if (MuteButton != null) MuteButton.Content = "🔇";
+        }
+        else if (_isMuted)
+        {
+            _isMuted = false;
+            Player.IsMuted = false;
+            if (MuteButton != null) MuteButton.Content = "🔊";
+        }
+    }
+
+    private void RepeatButton_Click(object sender, RoutedEventArgs e)
+    {
+        RepeatPopup.IsOpen = !RepeatPopup.IsOpen;
+    }
+
+    private void RepeatNone_Click(object sender, RoutedEventArgs e)
+    {
+        _repeatMode = VideoRepeatMode.None;
+        UpdateRepeatUi();
+        RepeatPopup.IsOpen = false;
+    }
+
+    private void RepeatCurrent_Click(object sender, RoutedEventArgs e)
+    {
+        _repeatMode = VideoRepeatMode.Current;
+        UpdateRepeatUi();
+        RepeatPopup.IsOpen = false;
+    }
+
+    private void RepeatList_Click(object sender, RoutedEventArgs e)
+    {
+        _repeatMode = VideoRepeatMode.Playlist;
+        UpdateRepeatUi();
+        RepeatPopup.IsOpen = false;
+    }
+
+    private void UpdateRepeatUi()
+    {
+        if (RepeatButton == null) return;
+
+        RepeatNoneButton.Background = _repeatMode == VideoRepeatMode.None ? System.Windows.Media.Brushes.DodgerBlue : (System.Windows.Media.Brush)new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(31, 41, 55));
+        RepeatCurrentButton.Background = _repeatMode == VideoRepeatMode.Current ? System.Windows.Media.Brushes.DodgerBlue : (System.Windows.Media.Brush)new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(31, 41, 55));
+        RepeatListButton.Background = _repeatMode == VideoRepeatMode.Playlist ? System.Windows.Media.Brushes.DodgerBlue : (System.Windows.Media.Brush)new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(31, 41, 55));
+
+        RepeatButton.Content = _repeatMode switch
+        {
+            VideoRepeatMode.Current => "현재 반복 ▴",
+            VideoRepeatMode.Playlist => "목록 반복 ▴",
+            _ => "반복 없음 ▴"
+        };
+    }
+
+    private void Fullscreen_Click(object sender, RoutedEventArgs e) => ToggleFullscreen();
+
+    private void ToggleFullscreen()
+    {
+        if (!_isFullscreen)
+        {
+            _previousWindowState = WindowState;
+            _previousWindowStyle = WindowStyle;
+            _previousResizeMode = ResizeMode;
+            _previousTopmost = Topmost;
+
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            WindowState = WindowState.Maximized;
+            Topmost = true;
+            _isFullscreen = true;
+            FullscreenButton.Content = "창 모드";
+        }
+        else
+        {
+            Topmost = _previousTopmost;
+            WindowStyle = _previousWindowStyle;
+            ResizeMode = _previousResizeMode;
+            WindowState = _previousWindowState;
+            _isFullscreen = false;
+            FullscreenButton.Content = "전체 화면";
+        }
+    }
+
+    private void Export_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new SaveFileDialog
+        {
+            Title = "내보낼 위치 선택",
+            FileName = _item.OriginalName,
+            Filter = "원본 파일|*" + _item.Extension + "|모든 파일|*.*"
+        };
+        if (dlg.ShowDialog(this) == true)
+        {
+            _context.Media.ExportMedia(_item, dlg.FileName);
+            MessageDialog.Show(this, "내보내기가 완료되었습니다.", "내보내기", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    private void MoveTopic_Click(object sender, RoutedEventArgs e)
+    {
+        var chooser = new TopicChooserWindow(_context.Database.GetTopics()) { Owner = this };
+        if (chooser.ShowDialog() == true && chooser.SelectedTopic != null)
+        {
+            _context.Database.MoveMedia(_item.Id, chooser.SelectedTopic.Id);
+            _item.TopicId = chooser.SelectedTopic.Id;
+            HasChanges = true;
+        }
+    }
+
+    private void ToggleFavorite_Click(object sender, RoutedEventArgs e)
+    {
+        _item.Favorite = !_item.Favorite;
+        _context.Database.SetFavorite(_item.Id, _item.Favorite);
+        HasChanges = true;
+        MessageDialog.Show(this, _item.Favorite ? "즐겨찾기에 추가했습니다." : "즐겨찾기에서 제거했습니다.", "즐겨찾기", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void Info_Click(object sender, RoutedEventArgs e)
+    {
+        MessageDialog.Show(this, $"파일명: {_item.OriginalName}\n종류: {(_item.Kind == MediaKind.Video ? "동영상" : "이미지")}\n크기: {FormatBytes(_item.SizeBytes)}\n해상도: {_item.Width} × {_item.Height}\n저장: 암호화 blob", "미디어 정보", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void EditThumbnailCrop_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind == MediaKind.Video)
+        {
+            ResetVideoThumbnail_Click(sender, e);
+            return;
+        }
+
+        if (_item.Kind != MediaKind.Image)
+        {
+            MessageDialog.Show(this, "이미지 항목은 원본 이미지를 기준으로 크롭할 수 있습니다.\n문서·압축·기타 파일은 '외부 이미지로 썸네일 설정'을 사용하세요.", "썸네일 크롭", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            BitmapSource source = ImageView.Source as BitmapSource ?? _context.Media.LoadImage(_item);
+            SaveThumbnailThroughCropWindow(source);
+        }
+        catch (Exception ex)
+        {
+            MessageDialog.Show(this, "썸네일 편집 창을 열 수 없습니다.\n\n" + ex.Message, "썸네일 크롭", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ResetVideoThumbnail_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video)
+        {
+            MessageDialog.Show(this, "이 기능은 동영상 항목에서만 사용할 수 있습니다.", "영상 썸네일", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        string? temp = null;
+        var createdTemp = false;
+        try
+        {
+            temp = !string.IsNullOrWhiteSpace(_tempVideoPath) && File.Exists(_tempVideoPath)
+                ? _tempVideoPath
+                : _context.Media.DecryptVideoToTemp(_item);
+            createdTemp = temp != _tempVideoPath;
+
+            if (_isPlaying)
+            {
+                Player.Pause();
+                _isPlaying = false;
+                PlayButton.Content = "▶";
+            }
+
+            var dlg = new VideoThumbnailWindow(temp, _item.OriginalName) { Owner = this };
+            if (dlg.ShowDialog() != true || dlg.SourceFrameBytes == null || dlg.ThumbnailBytes == null)
+                return;
+
+            _context.Media.SetVideoThumbnailFromFrame(_item, dlg.SourceFrameBytes, dlg.ThumbnailBytes, dlg.CapturePosition);
+            HasChanges = true;
+            MessageDialog.Show(this, "영상 원본 프레임에서 썸네일을 다시 저장했습니다. 목록으로 돌아가면 변경된 썸네일이 반영됩니다.", "영상 썸네일", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageDialog.Show(this, "영상 썸네일 재설정 중 오류가 발생했습니다.\n\n" + ex.Message, "영상 썸네일", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            if (createdTemp)
+                TempFileService.TryDelete(temp ?? string.Empty);
+        }
+    }
+
+    private void SetExternalThumbnail_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "썸네일로 사용할 이미지 선택",
+            Filter = "이미지 파일|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.webp;*.tif;*.tiff|모든 파일|*.*",
+            Multiselect = false
+        };
+
+        if (dlg.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            var source = ThumbnailCropWindow.LoadBitmapFromFile(dlg.FileName);
+            SaveThumbnailThroughCropWindow(source);
+        }
+        catch (Exception ex)
+        {
+            MessageDialog.Show(this, "선택한 이미지를 썸네일로 불러올 수 없습니다.\n\n" + ex.Message, "외부 썸네일", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void SaveThumbnailThroughCropWindow(BitmapSource source)
+    {
+        var crop = new ThumbnailCropWindow(source, _item.OriginalName) { Owner = this };
+        if (crop.ShowDialog() != true || crop.ThumbnailBytes == null)
+            return;
+
+        _context.Media.SetCustomThumbnail(_item, crop.ThumbnailBytes);
+        HasChanges = true;
+        MessageDialog.Show(this, "썸네일을 저장했습니다. 목록으로 돌아가면 변경된 썸네일이 반영됩니다.", "썸네일", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void DeleteCurrent_Click(object sender, RoutedEventArgs e)
+    {
+        var confirm = MessageDialog.Show(this, "현재 미디어를 Vault에서 삭제할까요?\n삭제하면 복구할 수 없습니다.", "미디어 삭제", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        _context.Media.DeleteMediaFiles(_item);
+        HasChanges = true;
+        Close();
+    }
+
+    private static string FormatTime(TimeSpan ts)
+    {
+        return ts.TotalHours >= 1 ? ts.ToString(@"hh\:mm\:ss") : ts.ToString(@"mm\:ss");
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var value = (double)bytes;
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+        return $"{value:0.#} {units[unit]}";
+    }
+}

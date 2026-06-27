@@ -1,0 +1,864 @@
+<Window x:Class="PrivateGalleryVault.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Private Gallery Vault" Width="1520" Height="930" MinWidth="1280" MinHeight="820" WindowStartupLocation="CenterScreen"
+        AllowDrop="True" DragOver="Window_DragOver" Drop="Window_Drop">
+    <Window.Resources>
+        <Style x:Key="CountBadge" TargetType="Border">
+            <Setter Property="Background" Value="#17283F" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="MinWidth" Value="26" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource SubText}" />
+            <Setter Property="TextElement.FontSize" Value="11" />
+            <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+        </Style>
+
+        <ItemsPanelTemplate x:Key="GalleryGridItemsPanel">
+            <UniformGrid Columns="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+        </ItemsPanelTemplate>
+
+        <ItemsPanelTemplate x:Key="GalleryListItemsPanel">
+            <StackPanel />
+        </ItemsPanelTemplate>
+
+        <DataTemplate x:Key="GalleryGridTemplate">
+            <Border Margin="8" Background="#111D2F" CornerRadius="15" BorderBrush="#26364D" BorderThickness="1" ClipToBounds="True">
+                <StackPanel>
+                    <Border Height="150" Background="#050B14" BorderBrush="#18283D" BorderThickness="0,0,0,1" ClipToBounds="True">
+                        <Grid>
+                            <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" SnapsToDevicePixels="True" />
+                            <Border HorizontalAlignment="Left" VerticalAlignment="Top" Background="#DD111D2F" CornerRadius="8" Margin="8" Padding="7,4" ToolTip="핸들을 잡아 순서 변경" Cursor="SizeAll" PreviewMouseLeftButtonDown="ReorderHandle_PreviewMouseLeftButtonDown" PreviewMouseMove="ReorderHandle_PreviewMouseMove"><TextBlock Text="⠿" Foreground="#BFDBFE" FontSize="14" /></Border>
+                            <Border HorizontalAlignment="Left" VerticalAlignment="Top" Background="#CC0B1220" CornerRadius="7" Margin="42,8,8,8" Padding="7,3">
+                                <TextBlock Text="{Binding Badge}" FontSize="11" FontWeight="Bold" Foreground="#E5E7EB" />
+                            </Border>
+                            <TextBlock Text="{Binding FavoriteMark}" FontSize="18" Foreground="#FBBF24" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,7,10,0" />
+                        </Grid>
+                    </Border>
+                    <StackPanel Margin="12,10,12,12">
+                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding DetailText}" Foreground="{StaticResource SubText}" FontSize="12" Margin="0,5,0,0" />
+                        <TextBlock Text="{Binding CreatedText}" Foreground="{StaticResource MutedText}" FontSize="12" Margin="0,3,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="GalleryListTemplate">
+            <Border Margin="0,0,0,8" Padding="10" Background="#111D2F" CornerRadius="14" BorderBrush="#26364D" BorderThickness="1" ClipToBounds="True">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="34" />
+                        <ColumnDefinition Width="78" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="42" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="⠿" Foreground="#94A3B8" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" ToolTip="핸들을 잡아 순서 변경" Cursor="SizeAll" PreviewMouseLeftButtonDown="ReorderHandle_PreviewMouseLeftButtonDown" PreviewMouseMove="ReorderHandle_PreviewMouseMove" />
+                    <Border Grid.Column="1" Width="64" Height="50" Background="#050B14" CornerRadius="10" ClipToBounds="True" HorizontalAlignment="Left">
+                        <Grid>
+                            <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                            <Border HorizontalAlignment="Left" VerticalAlignment="Top" Background="#CC0B1220" CornerRadius="6" Margin="4" Padding="5,1">
+                                <TextBlock Text="{Binding Badge}" FontSize="9" FontWeight="Bold" Foreground="#E5E7EB" />
+                            </Border>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="4,0,18,0">
+                        <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" FontSize="14.5" />
+                        <TextBlock Text="{Binding DetailText}" Foreground="{StaticResource SubText}" FontSize="12" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="3" Text="{Binding KindText}" Foreground="{StaticResource SubText}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="4" Text="{Binding CreatedText}" Foreground="{StaticResource MutedText}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="5" Text="{Binding FavoriteMark}" Foreground="#FBBF24" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource AppBackground}" TextElement.Foreground="{StaticResource Text}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="72" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="36" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#0A1322" BorderBrush="{StaticResource Stroke}" BorderThickness="0,0,0,1">
+            <Grid Margin="22,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="HeaderSidebarColumn" Width="336" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid>
+                    <StackPanel x:Name="HeaderBrandExpanded" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/logo_shield.png" Width="46" Height="46" Margin="0,0,14,0" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Private Gallery Vault" FontSize="21" FontWeight="Bold" Foreground="{StaticResource Text}" />
+                            <TextBlock Text="안전하게 암호화된 개인 이미지 · 영상 갤러리" Foreground="{StaticResource SubText}" FontSize="12" />
+                        </StackPanel>
+                    </StackPanel>
+                    <Grid x:Name="HeaderBrandCollapsed" Visibility="Collapsed" Width="60" Height="60" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Image Source="/Assets/Images/logo_shield.png" Width="46" Height="46" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform" />
+                    </Grid>
+                </Grid>
+
+                <Grid Grid.Column="1" Width="430" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Border Background="#111B2B" BorderBrush="{StaticResource Stroke}" BorderThickness="1" CornerRadius="11" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="40" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="⌕" FontSize="22" Foreground="{StaticResource SubText}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <TextBox x:Name="SearchBox" Grid.Column="1" Background="Transparent" BorderThickness="0" Height="38" VerticalContentAlignment="Center" TextChanged="SearchBox_TextChanged" ToolTip="주제, 파일명, 확장자 검색" />
+                    </Grid>
+                </Grid>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="＋ 파일 추가" Click="Import_Click" Margin="0,0,8,0" />
+                    <Button Content="▣ 주제 추가" Style="{StaticResource GhostButton}" Click="AddTopic_Click" Margin="0,0,8,0" />
+                    <Button Content="⚙ 설정" Style="{StaticResource GhostButton}" Click="Settings_Click" Margin="0,0,8,0" />
+                    <Button Content="🔒 잠금" Style="{StaticResource GhostButton}" Click="Lock_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarColumn" Width="336" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="340" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" BorderBrush="{StaticResource Stroke}" BorderThickness="0,0,1,0">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#081322" Offset="0" />
+                        <GradientStop Color="#06101D" Offset="0.55" />
+                        <GradientStop Color="#050B16" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+
+                <Grid>
+                    <Grid x:Name="SidebarExpandedContent" Margin="16,14,16,14">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0" Margin="2,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="보관함" Foreground="{StaticResource Text}" FontSize="15" FontWeight="Bold" />
+                                <TextBlock Text="이미지 · 영상 · 문서 · 압축파일" Foreground="{StaticResource MutedText}" FontSize="11" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="☰" Width="38" Height="34" Style="{StaticResource GhostButton}" Click="ToggleSidebar_Click" Padding="0" ToolTip="메뉴 접기" />
+                        </Grid>
+
+                        <Border Grid.Row="1" Background="#0B1728" BorderBrush="#1E314A" BorderThickness="1" CornerRadius="18" Padding="12" Margin="0,0,0,14">
+                            <StackPanel>
+                                <Grid Margin="4,0,4,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="ManagementCenterToggleButton" Grid.Column="0" Content="▶" FontFamily="Segoe UI Symbol" FontSize="10" Width="24" Height="24" Style="{StaticResource GhostButton}" Click="ToggleManagementCenterSection_Click" Padding="0" Margin="0,0,6,0" ToolTip="관리 센터 펼치기/접기" />
+                                    <TextBlock Grid.Column="1" Text="관리 센터" Foreground="{StaticResource Accent2}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="NEW" Foreground="#93C5FD" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                                </Grid>
+                                <UniformGrid x:Name="ManagementCenterPanel" Columns="2" Margin="0,0,0,14">
+                                    <Button x:Name="ActivityCenterButton" Content="◷ 최근 기록" Style="{StaticResource SidebarButton}" Click="ActivityCenter_Click" Height="34" Margin="0,0,5,6" />
+                                    <Button x:Name="DuplicateCenterButton" Content="≋ 중복 관리" Style="{StaticResource SidebarButton}" Click="DuplicateCenter_Click" Height="34" Margin="5,0,0,6" />
+                                    <Button x:Name="BackupCenterButton" Content="☁ 백업/복원" Style="{StaticResource SidebarButton}" Click="BackupCenter_Click" Height="34" Margin="0,0,5,0" />
+                                    <Button x:Name="TagCenterButton" Content="● 태그/라벨" Style="{StaticResource SidebarButton}" Click="TagCenter_Click" Height="34" Margin="5,0,0,0" />
+                                </UniformGrid>
+                                <Border Height="1" Background="#203149" Margin="0,0,0,12" />
+                                <Grid Margin="4,0,4,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="MediaFilterToggleButton" Grid.Column="0" Content="▶" FontFamily="Segoe UI Symbol" FontSize="10" Width="24" Height="24" Style="{StaticResource GhostButton}" Click="ToggleMediaFilterSection_Click" Padding="0" Margin="0,0,6,0" ToolTip="미디어 필터 펼치기/접기" />
+                                    <TextBlock Grid.Column="1" Text="미디어 필터" Foreground="{StaticResource Accent2}" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="정렬됨" Foreground="{StaticResource MutedText}" FontSize="11" VerticalAlignment="Center" />
+                                </Grid>
+
+                                <StackPanel x:Name="MediaFilterPanel" Margin="0,0,0,4">
+                                    <Button x:Name="AllButton" Style="{StaticResource SidebarButton}" Click="All_Click" Height="34" Margin="0,0,0,5">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="▣" Foreground="{StaticResource Accent2}" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/><TextBlock Grid.Column="1" Text="전체 항목" Foreground="{StaticResource Text}" FontWeight="SemiBold" VerticalAlignment="Center"/><Border Grid.Column="2" Style="{StaticResource CountBadge}"><TextBlock x:Name="AllCountText" Text="0"/></Border></Grid>
+                                    </Button>
+                                    <Button x:Name="ImagesButton" Style="{StaticResource SidebarButton}" Click="Images_Click" Height="34" Margin="0,0,0,5">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="▧" Foreground="#93C5FD" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/><TextBlock Grid.Column="1" Text="이미지" Foreground="{StaticResource Text}" FontWeight="SemiBold" VerticalAlignment="Center"/><Border Grid.Column="2" Style="{StaticResource CountBadge}"><TextBlock x:Name="ImagesCountText" Text="0"/></Border></Grid>
+                                    </Button>
+                                    <Button x:Name="VideosButton" Style="{StaticResource SidebarButton}" Click="Videos_Click" Height="34" Margin="0,0,0,5">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="▶" Foreground="#A78BFA" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/><TextBlock Grid.Column="1" Text="동영상" Foreground="{StaticResource Text}" FontWeight="SemiBold" VerticalAlignment="Center"/><Border Grid.Column="2" Style="{StaticResource CountBadge}"><TextBlock x:Name="VideosCountText" Text="0"/></Border></Grid>
+                                    </Button>
+                                    <Button x:Name="DocumentsButton" Style="{StaticResource SidebarButton}" Click="Documents_Click" Height="34" Margin="0,0,0,5">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="▤" Foreground="#60A5FA" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/><TextBlock Grid.Column="1" Text="문서" Foreground="{StaticResource Text}" FontWeight="SemiBold" VerticalAlignment="Center"/><Border Grid.Column="2" Style="{StaticResource CountBadge}"><TextBlock x:Name="DocumentsCountText" Text="0"/></Border></Grid>
+                                    </Button>
+                                    <Button x:Name="ArchivesButton" Style="{StaticResource SidebarButton}" Click="Archives_Click" Height="34" Margin="0,0,0,5">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="▥" Foreground="#FBBF24" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/><TextBlock Grid.Column="1" Text="압축파일" Foreground="{StaticResource Text}" FontWeight="SemiBold" VerticalAlignment="Center"/><Border Grid.Column="2" Style="{StaticResource CountBadge}"><TextBlock x:Name="ArchivesCountText" Text="0"/></Border></Grid>
+                                    </Button>
+                                    <Button x:Name="OtherFilesButton" Style="{StaticResource SidebarButton}" Click="OtherFiles_Click" Height="34" Margin="0,0,0,5">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="◇" Foreground="#A78BFA" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/><TextBlock Grid.Column="1" Text="기타 파일" Foreground="{StaticResource Text}" FontWeight="SemiBold" VerticalAlignment="Center"/><Border Grid.Column="2" Style="{StaticResource CountBadge}"><TextBlock x:Name="OtherFilesCountText" Text="0"/></Border></Grid>
+                                    </Button>
+                                    <Button x:Name="FavoritesButton" Style="{StaticResource SidebarButton}" Click="Favorites_Click" Height="34" Margin="0,0,0,5">
+                                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="★" Foreground="#FBBF24" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/><TextBlock Grid.Column="1" Text="즐겨찾기" Foreground="{StaticResource Text}" FontWeight="SemiBold" VerticalAlignment="Center"/><Border Grid.Column="2" Style="{StaticResource CountBadge}"><TextBlock x:Name="FavoritesCountText" Text="0"/></Border></Grid>
+                                    </Button>
+                                </StackPanel>
+
+                                <Button x:Name="ManageTopicsButton" Style="{StaticResource SidebarButton}" Click="ManageTopics_Click" Height="34">
+                                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="▦" Foreground="{StaticResource Accent2}" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/><TextBlock Grid.Column="1" Text="주제 폴더 보기" Foreground="{StaticResource Text}" FontWeight="SemiBold" VerticalAlignment="Center"/><TextBlock Grid.Column="2" Text="›" Foreground="{StaticResource SubText}" FontSize="18" VerticalAlignment="Center"/></Grid>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+
+                        <Border x:Name="SidebarSectionSeparator" Grid.Row="2" Height="1" Background="#203149" Margin="0,0,0,12" />
+
+                        <Grid Grid.Row="3" Margin="0,0,0,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <Grid Margin="4,0,0,10">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Button x:Name="TopicFolderToggleButton" Grid.Column="0" Content="▶" FontFamily="Segoe UI Symbol" FontSize="10" Width="24" Height="24" Style="{StaticResource GhostButton}" Click="ToggleTopicFolderSection_Click" Padding="0" Margin="0,2,6,0" ToolTip="주제 폴더 펼치기/접기" />
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="주제 폴더" Foreground="{StaticResource Accent2}" FontSize="12" FontWeight="Bold" />
+                                    <TextBlock Text="여러 주제를 한눈에 보고 바로 전환" Foreground="{StaticResource MutedText}" FontSize="11" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <Button Grid.Column="2" Content="＋" Width="36" Height="34" Style="{StaticResource GhostButton}" Click="AddTopic_Click" Padding="0" />
+                            </Grid>
+
+                            <StackPanel x:Name="TopicFolderPanel" Grid.Row="1">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="42" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Background="#081423" BorderBrush="#1E314A" BorderThickness="1" CornerRadius="14" Padding="9,6,8,6" Margin="0,0,8,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="⌕" Foreground="{StaticResource Accent2}" FontSize="15" Width="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Grid Grid.Column="1">
+                                                <TextBox x:Name="TopicFolderSearchBox"
+                                                         Background="Transparent"
+                                                         BorderThickness="0"
+                                                         Height="34"
+                                                         Padding="0,4,0,0"
+                                                         VerticalContentAlignment="Center"
+                                                         FontSize="13.5"
+                                                         Foreground="{StaticResource Text}"
+                                                         CaretBrush="{StaticResource Accent2}"
+                                                         TextChanged="TopicFolderSearchBox_TextChanged"
+                                                         ToolTip="주제 폴더 이름 또는 설명 검색" />
+                                                <TextBlock x:Name="TopicFolderSearchPlaceholder"
+                                                           Text="주제 폴더 검색"
+                                                           Foreground="{StaticResource MutedText}"
+                                                           VerticalAlignment="Center"
+                                                           IsHitTestVisible="False"
+                                                           Margin="2,1,0,0" />
+                                            </Grid>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+                                                <TextBlock x:Name="TopicFolderSearchCountText" Text="" Foreground="{StaticResource MutedText}" FontSize="11" VerticalAlignment="Center" Margin="0,0,7,0" />
+                                                <Button x:Name="TopicFolderSearchClearButton" Content="×" Width="24" Height="24" Style="{StaticResource GhostButton}" Padding="0" Click="ClearTopicFolderSearch_Click" Visibility="Collapsed" ToolTip="검색어 지우기" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <Button x:Name="TopicFolderSortButton"
+                                            Grid.Column="1"
+                                            Content="⇅"
+                                            Width="38"
+                                            Height="38"
+                                            FontSize="15"
+                                            FontWeight="Bold"
+                                            Style="{StaticResource GhostButton}"
+                                            Padding="0"
+                                            Click="TopicFolderSortButton_Click"
+                                            ToolTip="주제 폴더 정렬" />
+
+                                    <Popup x:Name="TopicFolderSortPopup"
+                                           PlacementTarget="{Binding ElementName=TopicFolderSortButton}"
+                                           Placement="Bottom"
+                                           HorizontalOffset="-176"
+                                           VerticalOffset="7"
+                                           AllowsTransparency="True"
+                                           StaysOpen="False"
+                                           PopupAnimation="Fade">
+                                        <Border Width="220"
+                                                Background="#0B1728"
+                                                BorderBrush="#2F7CFF"
+                                                BorderThickness="1"
+                                                CornerRadius="18"
+                                                Padding="12"
+                                                Effect="{StaticResource SoftShadow}">
+                                            <StackPanel>
+                                                <TextBlock Text="주제 정렬" Foreground="{StaticResource Text}" FontWeight="Bold" FontSize="13" />
+                                                <TextBlock x:Name="TopicFolderSortModeText" Text="사용자 설정 순서" Foreground="{StaticResource MutedText}" FontSize="11" Margin="0,2,0,10" />
+
+                                                <Button Style="{StaticResource GhostButton}" Height="36" Padding="8,0" HorizontalContentAlignment="Stretch" Tag="latest" Click="TopicFolderSortOption_Click" Margin="0,0,0,6">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                        <TextBlock Text="최신 등록 순" Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+                                                        <TextBlock x:Name="TopicFolderSortLatestCheck" Grid.Column="1" Text="✓" Foreground="{StaticResource Accent2}" FontWeight="Bold" Visibility="Collapsed" />
+                                                    </Grid>
+                                                </Button>
+
+                                                <Button Style="{StaticResource GhostButton}" Height="36" Padding="8,0" HorizontalContentAlignment="Stretch" Tag="nameDesc" Click="TopicFolderSortOption_Click" Margin="0,0,0,6">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                        <TextBlock Text="이름 내림차순" Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+                                                        <TextBlock x:Name="TopicFolderSortNameDescCheck" Grid.Column="1" Text="✓" Foreground="{StaticResource Accent2}" FontWeight="Bold" Visibility="Collapsed" />
+                                                    </Grid>
+                                                </Button>
+
+                                                <Button Style="{StaticResource GhostButton}" Height="36" Padding="8,0" HorizontalContentAlignment="Stretch" Tag="nameAsc" Click="TopicFolderSortOption_Click" Margin="0,0,0,6">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                        <TextBlock Text="이름 오름차순" Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+                                                        <TextBlock x:Name="TopicFolderSortNameAscCheck" Grid.Column="1" Text="✓" Foreground="{StaticResource Accent2}" FontWeight="Bold" Visibility="Collapsed" />
+                                                    </Grid>
+                                                </Button>
+
+                                                <Button Style="{StaticResource GhostButton}" Height="36" Padding="8,0" HorizontalContentAlignment="Stretch" Tag="custom" Click="TopicFolderSortOption_Click">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                        <TextBlock Text="사용자 설정 순서" Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+                                                        <TextBlock x:Name="TopicFolderSortCustomCheck" Grid.Column="1" Text="✓" Foreground="{StaticResource Accent2}" FontWeight="Bold" Visibility="Collapsed" />
+                                                    </Grid>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+
+                                <Border Background="#0B1728" BorderBrush="#1E314A" BorderThickness="1" CornerRadius="18" Padding="10" MaxHeight="300">
+                                    <ListBox x:Name="TopicList" SelectionChanged="TopicList_SelectionChanged" PreviewMouseRightButtonDown="TopicList_PreviewMouseRightButtonDown" PreviewMouseLeftButtonDown="ReorderList_PreviewMouseLeftButtonDown" PreviewMouseMove="ReorderTopicList_PreviewMouseMove" DragOver="ReorderTopicList_DragOver" DragLeave="ReorderList_DragLeave" Drop="ReorderTopicList_Drop" Background="Transparent" BorderThickness="0" Padding="0,2,4,5" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True">
+                                        <ListBox.ItemContainerStyle>
+                                            <Style TargetType="ListBoxItem">
+                                                <Setter Property="Padding" Value="0" />
+                                                <Setter Property="Margin" Value="0" />
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                                <Setter Property="VerticalContentAlignment" Value="Center" />
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="BorderThickness" Value="0" />
+                                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListBoxItem">
+                                                            <ContentPresenter />
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListBox.ItemContainerStyle>
+                                        <ListBox.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="주제 썸네일 지정" Click="SetTopicCover_Click" />
+                                                <MenuItem Header="주제 이름 변경" Click="RenameTopic_Click" />
+                                                <MenuItem Header="주제 설명 수정" Click="EditTopicDescription_Click" />
+                                                <Separator />
+                                                <MenuItem Header="주제 삭제" Click="DeleteTopic_Click" />
+                                            </ContextMenu>
+                                        </ListBox.ContextMenu>
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border x:Name="TopicRowBorder" Margin="0,0,0,8" Padding="8" Height="44" CornerRadius="12" Background="#101B2C" BorderBrush="#203149" BorderThickness="1">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                        <Border Grid.Column="0" Width="22" Height="28" CornerRadius="8" Background="#16253A" BorderBrush="#29405F" BorderThickness="1" Margin="0,0,7,0" Cursor="SizeAll" ToolTip="핸들을 잡아 주제 순서 변경" PreviewMouseLeftButtonDown="ReorderHandle_PreviewMouseLeftButtonDown" PreviewMouseMove="ReorderHandle_PreviewMouseMove">
+                                                            <TextBlock Text="⠿" Foreground="#BFDBFE" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                        </Border>
+                                                        <Border x:Name="TopicIconBorder" Grid.Column="1" Width="26" Height="26" CornerRadius="9" Background="#12243E" BorderBrush="#28466B" BorderThickness="1" Margin="0,0,9,0"><TextBlock Text="▣" Foreground="{StaticResource Accent2}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12"/></Border>
+                                                        <TextBlock Grid.Column="2" Text="{Binding Name}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Text}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                        <Border Grid.Column="3" Style="{StaticResource CountBadge}" Margin="10,0,0,0"><TextBlock Text="{Binding ItemCount}"/></Border>
+                                                    </Grid>
+                                                </Border>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                        <Setter TargetName="TopicRowBorder" Property="Background" Value="#12243A" />
+                                                        <Setter TargetName="TopicRowBorder" Property="BorderBrush" Value="#2C4B70" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                        <Setter TargetName="TopicRowBorder" Property="Background" Value="#132846" />
+                                                        <Setter TargetName="TopicRowBorder" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                        <Setter TargetName="TopicIconBorder" Property="Background" Value="#173B68" />
+                                                        <Setter TargetName="TopicIconBorder" Property="BorderBrush" Value="{StaticResource Accent2}" />
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border x:Name="SidebarDropZone"
+                                Grid.Row="4"
+                                Background="#0B1728"
+                                BorderBrush="#1E314A"
+                                BorderThickness="1"
+                                CornerRadius="18"
+                                Padding="14"
+                                AllowDrop="True"
+                                DragEnter="StorageDropZone_DragEnter"
+                                DragOver="StorageDropZone_DragOver"
+                                DragLeave="StorageDropZone_DragLeave"
+                                Drop="StorageDropZone_Drop"
+                                ToolTip="파일이나 폴더를 여기에 놓으면 현재 선택된 주제에 추가됩니다.">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Border Width="54" Height="54" CornerRadius="18" Background="#10243C" BorderBrush="#1D4ED8" BorderThickness="1" Margin="0,0,12,0">
+                                    <TextBlock Text="＋" Foreground="{StaticResource Accent2}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="24" />
+                                </Border>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                    <TextBlock x:Name="DropZoneTitleText" Text="파일 드래그&amp;드롭 추가" Foreground="{StaticResource Text}" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="DropZoneSubtitleText" Text="저장 위치: 미분류" Foreground="{StaticResource SubText}" FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock x:Name="DropZoneFallbackText" Text="주제 미선택 시 미분류에 저장" Foreground="{StaticResource MutedText}" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" Text="↧" Foreground="{StaticResource SubText}" FontSize="19" VerticalAlignment="Center" Margin="12,0,0,0" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <StackPanel x:Name="SidebarCollapsedRail" Visibility="Collapsed" Margin="10" VerticalAlignment="Stretch">
+                        <Button Content="☰" Width="56" Height="42" Style="{StaticResource GhostButton}" Click="ToggleSidebar_Click" Padding="0" ToolTip="메뉴 펼치기" Margin="0,0,0,12" />
+                        <Button x:Name="CollapsedAllButton" Content="▣" Width="56" Height="44" Style="{StaticResource SidebarButton}" HorizontalContentAlignment="Center" Padding="0" Click="All_Click" ToolTip="전체 항목" Margin="0,0,0,8" />
+                        <Button x:Name="CollapsedImagesButton" Content="▧" Width="56" Height="44" Style="{StaticResource SidebarButton}" HorizontalContentAlignment="Center" Padding="0" Click="Images_Click" ToolTip="이미지" Margin="0,0,0,8" />
+                        <Button x:Name="CollapsedVideosButton" Content="▶" Width="56" Height="44" Style="{StaticResource SidebarButton}" HorizontalContentAlignment="Center" Padding="0" Click="Videos_Click" ToolTip="동영상" Margin="0,0,0,8" />
+                        <Button x:Name="CollapsedDocumentsButton" Content="▤" Width="56" Height="44" Style="{StaticResource SidebarButton}" HorizontalContentAlignment="Center" Padding="0" Click="Documents_Click" ToolTip="문서" Margin="0,0,0,8" />
+                        <Button x:Name="CollapsedArchivesButton" Content="▥" Width="56" Height="44" Style="{StaticResource SidebarButton}" HorizontalContentAlignment="Center" Padding="0" Click="Archives_Click" ToolTip="압축파일" Margin="0,0,0,8" />
+                        <Button x:Name="CollapsedOtherFilesButton" Content="◇" Width="56" Height="44" Style="{StaticResource SidebarButton}" HorizontalContentAlignment="Center" Padding="0" Click="OtherFiles_Click" ToolTip="기타 파일" Margin="0,0,0,8" />
+                        <Button x:Name="CollapsedFavoritesButton" Content="★" Width="56" Height="44" Style="{StaticResource SidebarButton}" HorizontalContentAlignment="Center" Padding="0" Click="Favorites_Click" ToolTip="즐겨찾기" Margin="0,0,0,8" />
+                        <Button x:Name="CollapsedManageTopicsButton" Content="▦" Width="56" Height="44" Style="{StaticResource SidebarButton}" HorizontalContentAlignment="Center" Padding="0" Click="ManageTopics_Click" ToolTip="주제 폴더 보기" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <Grid Grid.Column="1" Margin="22">
+                <Grid x:Name="MediaView">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="HeaderText" Text="전체" FontSize="26" FontWeight="Bold" Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+                            <Border Background="#132034" CornerRadius="10" Padding="11,5" Margin="12,0,0,0" VerticalAlignment="Center"><TextBlock x:Name="HeaderBadgeText" Text="0개 항목" Foreground="{StaticResource SubText}" FontWeight="SemiBold" FontSize="12" /></Border>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="BulkTopicMoveButton" Content="▣ 주제 변경" Style="{StaticResource GhostButton}" Click="MoveMedia_Click" Margin="0,0,8,0" ToolTip="선택한 파일을 다른 주제로 한번에 이동" />
+                            <Button x:Name="MediaOrderEditButton" Content="✎ 순서 편집" Style="{StaticResource GhostButton}" Click="ToggleOrderEdit_Click" Margin="0,0,8,0" />
+                            <ComboBox x:Name="MediaGridColumnsCombo" Width="96" Height="36" Margin="0,0,8,0" ToolTip="파일 GRID 한 줄 표시 개수" SelectionChanged="MediaGridColumnsCombo_SelectionChanged">
+                                <ComboBoxItem Content="3개/줄" Tag="3" />
+                                <ComboBoxItem Content="4개/줄" Tag="4" />
+                                <ComboBoxItem Content="5개/줄" Tag="5" />
+                                <ComboBoxItem Content="6개/줄" Tag="6" />
+                                <ComboBoxItem Content="7개/줄" Tag="7" />
+                                <ComboBoxItem Content="8개/줄" Tag="8" />
+                            </ComboBox>
+                            <Button x:Name="MediaGridButton" Content="▦ GRID" Style="{StaticResource GhostButton}" Click="MediaGrid_Click" Margin="0,0,8,0" />
+                            <Button x:Name="MediaListButton" Content="☰ LIST" Style="{StaticResource GhostButton}" Click="MediaList_Click" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border x:Name="MediaOrderEditBanner" Grid.Row="1" Visibility="Collapsed" Background="#0B2B5C" BorderBrush="#2F7CFF" BorderThickness="1" CornerRadius="14" Padding="14,12" Margin="0,0,0,14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" CornerRadius="12" Background="#123E82" BorderBrush="#60A5FA" BorderThickness="1" Margin="0,0,12,0">
+                                <TextBlock Text="↕" Foreground="#BFDBFE" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="순서 편집 모드" Foreground="White" FontWeight="Bold" FontSize="15" />
+                                <TextBlock Text="핸들을 잡아 드래그하세요. 파란 라인이 들어갈 위치를 미리 보여주고, 변경 내용은 자동 저장됩니다." Foreground="#BFDBFE" FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                <Button Content="✓ 완료" Click="DoneOrderEdit_Click" Width="82" Margin="0,0,8,0" />
+                                <Button Content="↶ 되돌리기" Style="{StaticResource GhostButton}" Click="UndoOrderEdit_Click" Width="100" Margin="0,0,8,0" />
+                                <Button Content="↻ 기본 순서 복원" Style="{StaticResource GhostButton}" Click="ResetOrderEdit_Click" Width="140" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Background="#08111F" Padding="16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <StackPanel x:Name="EmptyMediaPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Image Source="/Assets/Images/empty_media.png" Width="220" Height="170" Stretch="Uniform" Opacity="0.95" />
+                                <TextBlock Text="아직 추가된 미디어가 없습니다." FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource Text}" HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                <TextBlock Text="상단의 파일 추가 또는 드래그 앤 드롭으로 이미지·영상·문서·압축파일을 가져오세요." Foreground="{StaticResource SubText}" TextAlignment="Center" Margin="0,6,0,0" />
+                            </StackPanel>
+                            <ListBox x:Name="GalleryList" MouseDoubleClick="GalleryList_MouseDoubleClick" PreviewMouseRightButtonDown="GalleryList_PreviewMouseRightButtonDown" PreviewMouseLeftButtonDown="ReorderList_PreviewMouseLeftButtonDown" PreviewMouseMove="ReorderMediaList_PreviewMouseMove" DragOver="ReorderMediaList_DragOver" DragLeave="ReorderList_DragLeave" Drop="ReorderMediaList_Drop" Background="Transparent" BorderThickness="0" SelectionMode="Extended" ItemsPanel="{StaticResource GalleryGridItemsPanel}" ItemTemplate="{StaticResource GalleryGridTemplate}" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="False" HorizontalContentAlignment="Stretch" AllowDrop="True">
+                                    <ListBox.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="열기" InputGestureText="Enter" Click="OpenSelected_Click" />
+                                            <MenuItem Header="선택 항목 내보내기" Click="ExportSelected_Click" />
+                                            <MenuItem Header="선택 항목 주제 이동" Click="MoveMedia_Click" />
+                                            <MenuItem Header="순서 이동..." InputGestureText="#" Click="MoveMediaOrderByNumber_Click" />
+                                            <Separator />
+                                            <MenuItem Header="즐겨찾기 토글" Click="ToggleFavorite_Click" />
+                                            <Separator />
+                                            <MenuItem Header="영상 썸네일 재설정..." Click="ResetVideoThumbnail_Click" />
+                                            <MenuItem Header="썸네일 크롭/수정..." Click="EditThumbnailCrop_Click" />
+                                            <MenuItem Header="외부 이미지로 썸네일 설정..." Click="SetExternalThumbnail_Click" />
+                                            <Separator />
+                                            <MenuItem Header="선택 항목 삭제" InputGestureText="Del" Click="DeleteMedia_Click" />
+                                        </ContextMenu>
+                                    </ListBox.ContextMenu>
+                                </ListBox>
+                            <Border x:Name="MediaAutoScrollTopHint" Visibility="Collapsed" Height="44" VerticalAlignment="Top" IsHitTestVisible="False" CornerRadius="12" Opacity="0.95">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#773B82F6" Offset="0" />
+                                        <GradientStop Color="#003B82F6" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <TextBlock Text="▲ 위로 자동 스크롤" Foreground="#BFDBFE" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0" />
+                            </Border>
+                            <Border x:Name="MediaAutoScrollBottomHint" Visibility="Collapsed" Height="44" VerticalAlignment="Bottom" IsHitTestVisible="False" CornerRadius="12" Opacity="0.95">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                        <GradientStop Color="#773B82F6" Offset="0" />
+                                        <GradientStop Color="#003B82F6" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <TextBlock Text="▼ 아래로 자동 스크롤" Foreground="#BFDBFE" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8" />
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="PagerPanel" Grid.Row="3" Background="#0B1220" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="14" Padding="12" Margin="0,12,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="PageSummaryText" Text="0개 항목" Foreground="{StaticResource SubText}" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button x:Name="FirstPageButton" Content="처음" Style="{StaticResource GhostButton}" Width="70" Click="FirstPage_Click" Margin="0,0,6,0" />
+                                <Button x:Name="PrevPageButton" Content="이전" Style="{StaticResource GhostButton}" Width="70" Click="PrevPage_Click" Margin="0,0,6,0" />
+                                <Border Background="#111D2F" BorderBrush="#26364D" BorderThickness="1" CornerRadius="10" Padding="16,8" Margin="0,0,6,0">
+                                    <TextBlock x:Name="PageInfoText" Text="1 / 1" Foreground="{StaticResource Text}" FontWeight="SemiBold" />
+                                </Border>
+                                <Button x:Name="NextPageButton" Content="다음" Style="{StaticResource GhostButton}" Width="70" Click="NextPage_Click" Margin="0,0,6,0" />
+                                <Button x:Name="LastPageButton" Content="끝" Style="{StaticResource GhostButton}" Width="70" Click="LastPage_Click" />
+                            </StackPanel>
+                            <TextBlock x:Name="ItemsPerPageText" Grid.Column="2" Text="페이지당 72개" Foreground="{StaticResource MutedText}" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <Grid x:Name="TopicManagementView" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="주제 탐색" FontSize="28" FontWeight="Bold" Foreground="{StaticResource Text}" />
+                            <TextBlock Text="탐색기 폴더처럼 주제를 열어 미디어를 확인하고, 썸네일로 빠르게 식별합니다." Foreground="{StaticResource SubText}" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="TopicOrderEditButton" Content="✎ 순서 편집" Style="{StaticResource GhostButton}" Click="ToggleOrderEdit_Click" Margin="0,0,8,0" />
+                            <ComboBox x:Name="TopicGridColumnsCombo" Width="96" Height="36" Margin="0,0,8,0" ToolTip="주제 GRID 한 줄 표시 개수" SelectionChanged="TopicGridColumnsCombo_SelectionChanged">
+                                <ComboBoxItem Content="3개/줄" Tag="3" />
+                                <ComboBoxItem Content="4개/줄" Tag="4" />
+                                <ComboBoxItem Content="5개/줄" Tag="5" />
+                                <ComboBoxItem Content="6개/줄" Tag="6" />
+                                <ComboBoxItem Content="7개/줄" Tag="7" />
+                                <ComboBoxItem Content="8개/줄" Tag="8" />
+                            </ComboBox>
+                            <Button x:Name="TopicGridButton" Content="▦ GRID" Click="TopicGrid_Click" Margin="0,0,8,0" />
+                            <Button x:Name="TopicListButton" Content="☰ LIST" Style="{StaticResource GhostButton}" Click="TopicListView_Click" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border x:Name="TopicOrderEditBanner" Grid.Row="1" Visibility="Collapsed" Background="#0B2B5C" BorderBrush="#2F7CFF" BorderThickness="1" CornerRadius="14" Padding="14,12" Margin="0,0,0,14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" CornerRadius="12" Background="#123E82" BorderBrush="#60A5FA" BorderThickness="1" Margin="0,0,12,0">
+                                <TextBlock Text="↕" Foreground="#BFDBFE" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="주제 순서 편집 모드" Foreground="White" FontWeight="Bold" FontSize="15" />
+                                <TextBlock Text="주제 카드나 사이드바 폴더의 핸들을 드래그하세요. 실시간 삽입 위치와 자동 스크롤 힌트를 제공합니다." Foreground="#BFDBFE" FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                <Button Content="✓ 완료" Click="DoneOrderEdit_Click" Width="82" Margin="0,0,8,0" />
+                                <Button Content="↶ 되돌리기" Style="{StaticResource GhostButton}" Click="UndoOrderEdit_Click" Width="100" Margin="0,0,8,0" />
+                                <Button Content="↻ 기본 순서 복원" Style="{StaticResource GhostButton}" Click="ResetOrderEdit_Click" Width="140" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Background="#08111F" Padding="16">
+                        <Grid>
+                            <ListBox x:Name="TopicGridList" SelectionChanged="TopicCard_SelectionChanged" PreviewMouseLeftButtonDown="ReorderList_PreviewMouseLeftButtonDown" PreviewMouseMove="ReorderTopicCardList_PreviewMouseMove" DragOver="ReorderTopicCardList_DragOver" DragLeave="ReorderList_DragLeave" Drop="ReorderTopicCardList_Drop" Background="Transparent" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" AllowDrop="True">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Height="224" Margin="8" Background="#111D2F" CornerRadius="17" BorderBrush="#26364D" BorderThickness="1" ClipToBounds="True">
+                                            <StackPanel>
+                                                <Border Height="138" Background="#050B14" BorderBrush="#18283D" BorderThickness="0,0,0,1" ClipToBounds="True">
+                                                    <Grid>
+                                                        <Image Source="{Binding CoverImage}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Border>
+                                                <Grid Margin="14,12,14,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="1" Text="⠿" Foreground="#BFDBFE" FontSize="18" ToolTip="핸들을 잡아 주제 순서 변경" Cursor="SizeAll" PreviewMouseLeftButtonDown="ReorderHandle_PreviewMouseLeftButtonDown" PreviewMouseMove="ReorderHandle_PreviewMouseMove" />
+                                                </Grid>
+                                                <TextBlock Text="{Binding CountText}" Foreground="{StaticResource SubText}" Margin="14,4,14,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <ListBox x:Name="TopicLinearList" Visibility="Collapsed" SelectionChanged="TopicCard_SelectionChanged" PreviewMouseLeftButtonDown="ReorderList_PreviewMouseLeftButtonDown" PreviewMouseMove="ReorderTopicCardList_PreviewMouseMove" DragOver="ReorderTopicCardList_DragOver" DragLeave="ReorderList_DragLeave" Drop="ReorderTopicCardList_Drop" Background="Transparent" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AllowDrop="True">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="0,6" Padding="12" Background="#111D2F" CornerRadius="14" BorderBrush="#26364D" BorderThickness="1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="34" />
+                                                    <ColumnDefinition Width="96" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="⠿" Foreground="#94A3B8" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" ToolTip="핸들을 잡아 순서 변경" Cursor="SizeAll" PreviewMouseLeftButtonDown="ReorderHandle_PreviewMouseLeftButtonDown" PreviewMouseMove="ReorderHandle_PreviewMouseMove" />
+                                                <Border Grid.Column="1" Width="82" Height="62" Background="#050B14" CornerRadius="10" ClipToBounds="True"><Image Source="{Binding CoverImage}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" /></Border>
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding Description}" Foreground="{StaticResource SubText}" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="3" Text="{Binding CountText}" Foreground="{StaticResource SubText}" VerticalAlignment="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <Border x:Name="TopicAutoScrollTopHint" Visibility="Collapsed" Height="44" VerticalAlignment="Top" IsHitTestVisible="False" CornerRadius="12" Opacity="0.95">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#773B82F6" Offset="0" />
+                                        <GradientStop Color="#003B82F6" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <TextBlock Text="▲ 위로 자동 스크롤" Foreground="#BFDBFE" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0" />
+                            </Border>
+                            <Border x:Name="TopicAutoScrollBottomHint" Visibility="Collapsed" Height="44" VerticalAlignment="Bottom" IsHitTestVisible="False" CornerRadius="12" Opacity="0.95">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                        <GradientStop Color="#773B82F6" Offset="0" />
+                                        <GradientStop Color="#003B82F6" Offset="1" />
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <TextBlock Text="▼ 아래로 자동 스크롤" Foreground="#BFDBFE" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8" />
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <Border Grid.Column="2" Background="#0A1322" BorderBrush="{StaticResource Stroke}" BorderThickness="1,0,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,8,0">
+                <StackPanel Margin="22">
+                    <TextBlock Text="선택된 주제 정보" FontSize="18" FontWeight="Bold" Foreground="{StaticResource Text}" />
+                    <TextBlock Text="주제와 미디어 보관 상태" Foreground="{StaticResource SubText}" Margin="0,4,0,18" />
+                    <Border Style="{StaticResource Card}" Padding="16" Background="#0D1726">
+                        <StackPanel>
+                            <Border Height="142" Background="#050B14" BorderBrush="#18283D" BorderThickness="1" CornerRadius="14" ClipToBounds="True" Margin="0,0,0,14"><Image x:Name="TopicCoverImage" Source="/Assets/Images/topic_default_folder.png" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" /></Border>
+                            <TextBlock x:Name="SelectedTopicTitleText" Text="전체" FontSize="22" FontWeight="Bold" Foreground="{StaticResource Text}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="MediaCountText" Text="0개 항목" Foreground="{StaticResource SubText}" Margin="0,5,0,14" />
+                            <TextBlock Text="설명" Foreground="{StaticResource SubText}" />
+                            <TextBlock x:Name="TopicDescriptionText" Text="주제를 선택하세요." Foreground="{StaticResource Text}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Margin="0,16,0,0">
+                        <Button Content="썸네일 지정" Click="SetTopicCover_Click" Margin="0,0,0,8" />
+                        <Button Content="이름 변경" Style="{StaticResource GhostButton}" Click="RenameTopic_Click" Margin="0,0,0,8" />
+                        <Button Content="설명 수정" Style="{StaticResource GhostButton}" Click="EditTopicDescription_Click" Margin="0,0,0,8" />
+                        <Button Content="삭제" Style="{StaticResource DangerButton}" Click="DeleteTopic_Click" />
+                    </StackPanel>
+
+                    <TextBlock Text="사용 팁" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,24,0,8" />
+                    <TextBlock Foreground="{StaticResource SubText}" TextWrapping="Wrap" LineHeight="22"
+                               Text="• 파일은 AES-256 암호화로 안전하게 보호됩니다.&#x0a;• 마우스 휠로 이미지 확대/축소, 클릭 드래그로 이동합니다.&#x0a;• 주제 썸네일은 기존 미디어에서 직접 지정할 수 있습니다.&#x0a;• 자동 잠금 타이머는 설정에서 변경할 수 있습니다." />
+                </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <Border x:Name="ManagementOverlay" Grid.Column="1" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#07111F" BorderBrush="{StaticResource Stroke}" BorderThickness="1,0,0,0">
+                <Grid Margin="22">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock x:Name="ManagementTitleText" Text="관리 센터" FontSize="28" FontWeight="Bold" />
+                            <TextBlock x:Name="ManagementSubtitleText" Text="최근 기록, 중복 관리, 백업/복원, 태그/라벨을 한 화면에서 관리합니다." Foreground="{StaticResource SubText}" Margin="0,5,0,0" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="← 갤러리로 돌아가기" Style="{StaticResource GhostButton}" Click="CloseManagement_Click" />
+                    </Grid>
+                    <ContentControl x:Name="ManagementContentHost" Grid.Row="1" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2" Background="#020617" BorderBrush="{StaticResource Stroke}" BorderThickness="0,1,0,0">
+            <Grid Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Text="준비됨" Foreground="{StaticResource SubText}" VerticalAlignment="Center" FontSize="12" TextTrimming="CharacterEllipsis" />
+                <Border x:Name="ImportProgressPanel" Grid.Column="1" Visibility="Collapsed" Background="#0B1220" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="10" Padding="10,5" Margin="12,0,14,0" VerticalAlignment="Center">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="220" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ImportProgressText" Text="가져오기 0 / 0" Foreground="{StaticResource Text}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ProgressBar x:Name="ImportProgressBar" Grid.Column="1" Height="8" Minimum="0" Maximum="1" Value="0" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+                <TextBlock Grid.Column="2" x:Name="AutoLockStatusText" Text="자동 잠금: 1시간" Foreground="{StaticResource SubText}" VerticalAlignment="Center" FontSize="12" />
+            </Grid>
+        </Border>
+
+
+        <Border x:Name="ContentBusyOverlay" Grid.Row="1" Visibility="Collapsed" Background="#99020712" IsHitTestVisible="True">
+            <Grid>
+                <Border Width="420" MinHeight="230" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#0B1220" BorderBrush="#3B82F6" BorderThickness="1.4" CornerRadius="24" Padding="26">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#000000" BlurRadius="34" ShadowDepth="0" Opacity="0.62" />
+                    </Border.Effect>
+                    <StackPanel>
+                        <Grid Width="72" Height="72" HorizontalAlignment="Center" Margin="0,2,0,18">
+                            <Ellipse Stroke="#1E3A8A" StrokeThickness="6" Opacity="0.9" />
+                            <Ellipse Stroke="#60A5FA" StrokeThickness="6" StrokeDashArray="2 4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+                                <Ellipse.RenderTransform>
+                                    <RotateTransform x:Name="ContentBusySpinnerRotate" Angle="0" />
+                                </Ellipse.RenderTransform>
+                                <Ellipse.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetName="ContentBusySpinnerRotate" Storyboard.TargetProperty="Angle" From="0" To="360" Duration="0:0:1.05" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                            <TextBlock Text="🔐" FontSize="23" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <TextBlock x:Name="ContentBusyTitleText" Text="목록 불러오는 중" Foreground="White" FontSize="21" FontWeight="Bold" HorizontalAlignment="Center" />
+                        <TextBlock x:Name="ContentBusyDetailText" Text="썸네일을 안전하게 불러오고 있습니다." Foreground="#BFDBFE" FontSize="13" TextAlignment="Center" TextWrapping="Wrap" LineHeight="20" Margin="0,8,0,20" />
+                        <ProgressBar x:Name="ContentBusyPulseBar" Height="6" IsIndeterminate="True" Margin="0,0,0,10" />
+                        <ProgressBar x:Name="ContentBusyProgressBar" Height="10" Minimum="0" Maximum="1" Value="0" />
+                        <Grid Margin="0,12,0,0">
+                            <TextBlock x:Name="ContentBusyProgressText" Text="준비 중" Foreground="#E5E7EB" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Left" />
+                            <TextBlock Text="잠시만 기다려주세요" Foreground="#64748B" FontSize="11" HorizontalAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Border x:Name="ImportModalOverlay" Grid.RowSpan="3" Visibility="Collapsed" Background="#AA020617" IsHitTestVisible="True">
+            <Grid>
+                <Border Width="440" MinHeight="250" HorizontalAlignment="Center" VerticalAlignment="Center" Background="#0B1220" BorderBrush="#3B82F6" BorderThickness="1.4" CornerRadius="24" Padding="26">
+                    <Border.Effect>
+                        <DropShadowEffect Color="#000000" BlurRadius="34" ShadowDepth="0" Opacity="0.62" />
+                    </Border.Effect>
+                    <StackPanel>
+                        <Grid Width="76" Height="76" HorizontalAlignment="Center" Margin="0,2,0,18">
+                            <Ellipse Stroke="#1E3A8A" StrokeThickness="6" Opacity="0.9" />
+                            <Ellipse Stroke="#60A5FA" StrokeThickness="6" StrokeDashArray="2 4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+                                <Ellipse.RenderTransform>
+                                    <RotateTransform x:Name="ImportModalSpinnerRotate" Angle="0" />
+                                </Ellipse.RenderTransform>
+                                <Ellipse.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetName="ImportModalSpinnerRotate" Storyboard.TargetProperty="Angle" From="0" To="360" Duration="0:0:1.1" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                            <TextBlock Text="🔒" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <TextBlock x:Name="ImportModalTitleText" Text="파일 가져오는 중" Foreground="White" FontSize="21" FontWeight="Bold" HorizontalAlignment="Center" />
+                        <TextBlock x:Name="ImportModalDetailText" Text="암호화 저장을 준비하고 있습니다." Foreground="#BFDBFE" FontSize="13" TextAlignment="Center" TextWrapping="Wrap" LineHeight="20" Margin="0,8,0,20" />
+
+                        <ProgressBar x:Name="ImportModalPulseBar" Height="6" IsIndeterminate="True" Margin="0,0,0,10" />
+                        <ProgressBar x:Name="ImportModalProgressBar" Height="10" Minimum="0" Maximum="1" Value="0" />
+
+                        <Grid Margin="0,12,0,0">
+                            <TextBlock x:Name="ImportModalProgressText" Text="파일 목록 확인 중" Foreground="#E5E7EB" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Left" />
+                            <TextBlock Text="완료되면 자동으로 닫힙니다" Foreground="#64748B" FontSize="11" HorizontalAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

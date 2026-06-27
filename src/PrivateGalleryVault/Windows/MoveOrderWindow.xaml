@@ -1,0 +1,103 @@
+<Window x:Class="PrivateGalleryVault.Windows.MoveOrderWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="순서 이동"
+        Width="590"
+        Height="640"
+        MinWidth="560"
+        MinHeight="620"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Foreground="#F8FAFC">
+    <Border Background="#081322"
+            BorderBrush="#31527A"
+            BorderThickness="1.2"
+            CornerRadius="22"
+            Padding="0"
+            Effect="{StaticResource SoftShadow}"
+            TextElement.Foreground="{StaticResource Text}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="64" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Border Background="#0A1628" BorderBrush="{StaticResource Stroke}" BorderThickness="0,0,0,1" CornerRadius="22,22,0,0" MouseDown="DialogChrome_MouseDown">
+                <Grid Margin="22,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="38" Height="38" CornerRadius="12" Background="#123E82" BorderBrush="#60A5FA" BorderThickness="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="↕" Foreground="#BFDBFE" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="순서 이동" FontSize="19" FontWeight="Bold" Foreground="{StaticResource Text}" />
+                        <TextBlock Text="여러 페이지에 걸친 파일도 번호 입력으로 즉시 이동합니다." FontSize="12" Foreground="{StaticResource SubText}" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="×" Style="{StaticResource GhostButton}" Width="36" Height="34" Padding="0" Click="Cancel_Click" />
+                </Grid>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
+                <StackPanel Margin="26,22,26,14">
+                <Border Background="#0B1B32" BorderBrush="#1D3F68" BorderThickness="1" CornerRadius="14" Padding="14" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock x:Name="CurrentPositionText" Text="현재 위치: 0번째" Foreground="#BFDBFE" FontWeight="SemiBold" />
+                        <TextBlock x:Name="FileNameText" Text="파일명" Foreground="{StaticResource MutedText}" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="이동할 위치 입력" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,0,0,8" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="PositionBox" Height="46" VerticalContentAlignment="Center" FontSize="18" KeyDown="PositionBox_KeyDown" TextChanged="PositionBox_TextChanged" />
+                    <StackPanel Grid.Column="1" Orientation="Vertical" Margin="8,0,0,0">
+                        <Button Content="▲" Style="{StaticResource GhostButton}" Width="42" Height="22" Padding="0" Click="Increase_Click" />
+                        <Button Content="▼" Style="{StaticResource GhostButton}" Width="42" Height="22" Padding="0" Margin="0,2,0,0" Click="Decrease_Click" />
+                    </StackPanel>
+                </Grid>
+                <TextBlock x:Name="RangeText" Text="1 ~ 1 사이의 번호를 입력하세요." Foreground="{StaticResource MutedText}" FontSize="12" Margin="0,7,0,0" />
+                <TextBlock x:Name="ValidationText" Text=" " Foreground="#F87171" FontSize="12" Margin="0,5,0,0" />
+
+                <Border Height="1" Background="#1E3047" Margin="0,10,0,14" />
+
+                <TextBlock Text="빠른 이동" FontWeight="SemiBold" Foreground="{StaticResource Text}" Margin="0,0,0,10" />
+                <UniformGrid Columns="2" Rows="2">
+                    <Button Content="≪ 맨 앞으로" Style="{StaticResource GhostButton}" Height="42" Margin="0,0,7,7" Click="MoveFirst_Click" />
+                    <Button Content="≫ 맨 뒤로" Style="{StaticResource GhostButton}" Height="42" Margin="7,0,0,7" Click="MoveLast_Click" />
+                    <Button Content="|‹ 현재 페이지 첫 번째" Style="{StaticResource GhostButton}" Height="42" Margin="0,7,7,0" Click="MovePageFirst_Click" />
+                    <Button Content="›| 현재 페이지 마지막" Style="{StaticResource GhostButton}" Height="42" Margin="7,7,0,0" Click="MovePageLast_Click" />
+                </UniformGrid>
+
+                <Border Background="#0B1B32" BorderBrush="#2F7CFF" BorderThickness="1" CornerRadius="14" Padding="12" Margin="0,18,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="26" Height="26" CornerRadius="13" Background="#2563EB" Margin="0,0,10,0">
+                            <TextBlock Text="👁" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock x:Name="PreviewText" Text="이동 후 위치 미리보기" Foreground="#BFDBFE" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="이동 적용 시 파일 순서가 즉시 저장되고, 대상 페이지로 자동 이동합니다."
+                           Foreground="{StaticResource MutedText}" FontSize="12" Margin="2,12,0,0" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="2" BorderBrush="{StaticResource Stroke}" BorderThickness="0,1,0,0" Padding="22,18" Background="#081322" CornerRadius="0,0,22,22">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="취소" Style="{StaticResource GhostButton}" Click="Cancel_Click" Width="112" Height="40" Margin="0,0,10,0" />
+                    <Button x:Name="ApplyButton" Content="이동 적용" Click="Apply_Click" Width="128" Height="40" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
