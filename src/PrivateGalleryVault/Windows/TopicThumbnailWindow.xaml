@@ -70,35 +70,73 @@
                             <TextBlock Text="먼저 이미지나 영상을 추가해 주세요." Foreground="{StaticResource SubText}" HorizontalAlignment="Center" Margin="0,7,0,0" />
                         </StackPanel>
 
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="2">
-                            <ListBox x:Name="MediaList" SelectionMode="Single" Background="Transparent" BorderThickness="0">
-                                <ListBox.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ListBox.ItemsPanel>
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Width="180" Margin="7" Background="#111D2F" CornerRadius="16" BorderBrush="#2A3C56" BorderThickness="1" ClipToBounds="True">
-                                            <Border.Effect>
-                                                <DropShadowEffect BlurRadius="12" ShadowDepth="0" Opacity="0.16" Color="#000000" />
-                                            </Border.Effect>
-                                            <StackPanel>
-                                                <Border Height="120" Background="#050B14" BorderBrush="#18283D" BorderThickness="0,0,0,1" ClipToBounds="True">
-                                                    <Grid>
-                                                        <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Background="#CC0B1220" CornerRadius="7" Margin="8" Padding="6,2">
-                                                            <TextBlock Text="{Binding Badge}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Text}" />
-                                                        </Border>
-                                                    </Grid>
-                                                </Border>
-                                                <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" Margin="10,9,10,10" Foreground="{StaticResource Text}" />
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </ScrollViewer>
+                        <ListBox x:Name="MediaList"
+                                 SelectionMode="Single"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 Padding="2">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ListBox}}" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="180" Margin="7" Background="#111D2F" CornerRadius="16" BorderBrush="#2A3C56" BorderThickness="1" ClipToBounds="True">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="12" ShadowDepth="0" Opacity="0.16" Color="#000000" />
+                                        </Border.Effect>
+                                        <StackPanel>
+                                            <Border Height="120" Background="#050B14" BorderBrush="#18283D" BorderThickness="0,0,0,1" ClipToBounds="True">
+                                                <Grid>
+                                                    <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Border HorizontalAlignment="Left" VerticalAlignment="Top" Background="#CC0B1220" CornerRadius="7" Margin="8" Padding="6,2">
+                                                        <TextBlock Text="{Binding Badge}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Text}" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                            <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" Margin="10,9,10,10" Foreground="{StaticResource Text}" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <Border x:Name="LoadingOverlay"
+                                Visibility="Collapsed"
+                                Background="#D906111F"
+                                CornerRadius="20"
+                                Padding="24"
+                                Panel.ZIndex="10">
+                            <Border HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Width="360"
+                                    Background="#0B1730"
+                                    BorderBrush="#2F7CFF"
+                                    BorderThickness="1"
+                                    CornerRadius="20"
+                                    Padding="24">
+                                <StackPanel>
+                                    <TextBlock Text="썸네일을 불러오는 중입니다"
+                                               Foreground="{StaticResource Text}"
+                                               FontSize="18"
+                                               FontWeight="Bold"
+                                               HorizontalAlignment="Center" />
+                                    <TextBlock x:Name="LoadingText"
+                                               Text="미디어 목록을 준비하고 있습니다..."
+                                               Foreground="{StaticResource SubText}"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,8,0,16" />
+                                    <ProgressBar x:Name="LoadProgressBar"
+                                                 Height="9"
+                                                 Minimum="0"
+                                                 Maximum="1"
+                                                 IsIndeterminate="True" />
+                                </StackPanel>
+                            </Border>
+                        </Border>
                     </Grid>
                 </Border>
 

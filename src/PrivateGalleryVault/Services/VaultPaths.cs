@@ -23,8 +23,48 @@ public static class VaultPaths
 
     public static string ToAbsoluteVaultPath(string relativePath)
     {
-        var normalized = relativePath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
-        return Path.Combine(VaultRoot, normalized);
+        if (string.IsNullOrWhiteSpace(relativePath))
+            throw new ArgumentException("Vault 상대 경로가 비어 있습니다.", nameof(relativePath));
+
+        var normalized = relativePath
+            .Replace('/', Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar)
+            .Trim();
+
+        if (Path.IsPathRooted(normalized))
+            throw new InvalidOperationException("Vault 외부 절대 경로는 사용할 수 없습니다.");
+
+        var root = Path.GetFullPath(VaultRoot);
+        var candidate = Path.GetFullPath(Path.Combine(root, normalized));
+
+        if (!IsPathInsideDirectory(candidate, root))
+            throw new InvalidOperationException("Vault 외부로 벗어나는 경로는 사용할 수 없습니다.");
+
+        return candidate;
+    }
+
+    public static bool IsPathInsideVault(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return false;
+
+        try
+        {
+            return IsPathInsideDirectory(Path.GetFullPath(path), Path.GetFullPath(VaultRoot));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsPathInsideDirectory(string candidatePath, string rootPath)
+    {
+        var root = rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var candidate = candidatePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return candidate.Equals(root.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)
+               || candidate.StartsWith(root, StringComparison.OrdinalIgnoreCase);
     }
 
     public static string CreateObjectRelativePath(string id)

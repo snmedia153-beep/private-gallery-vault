@@ -4,6 +4,7 @@ public sealed class MediaItem
 {
     public string Id { get; set; } = string.Empty;
     public string TopicId { get; set; } = string.Empty;
+    public string? FolderId { get; set; }
     public MediaKind Kind { get; set; }
     public string OriginalName { get; set; } = string.Empty;
     public string Extension { get; set; } = string.Empty;

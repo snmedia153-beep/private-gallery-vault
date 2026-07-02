@@ -14,31 +14,38 @@
         </Style>
 
         <Style x:Key="PlayerRoundButton" TargetType="Button">
-            <Setter Property="Width" Value="44" />
-            <Setter Property="Height" Value="44" />
+            <Setter Property="Width" Value="76" />
+            <Setter Property="Height" Value="52" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,6,0" />
-            <Setter Property="FontFamily" Value="Segoe UI Symbol" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="#CBD5E1" />
-            <Setter Property="Background" Value="#101B2C" />
-            <Setter Property="BorderBrush" Value="#2A3A52" />
+            <Setter Property="Foreground" Value="#F8FAFC" />
+            <Setter Property="Background" Value="#13233A" />
+            <Setter Property="BorderBrush" Value="#365A84" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="13">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
+                        <Border x:Name="Bd"
+                                CornerRadius="16"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#17243A" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#60A5FA" />
+                                <Setter TargetName="Bd" Property="Background" Value="#1C3E68" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#6EA8E8" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#0B1220" />
+                                <Setter TargetName="Bd" Property="Background" Value="#0B1728" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
@@ -50,33 +57,159 @@
         </Style>
 
         <Style x:Key="PlayerPrimaryButton" TargetType="Button">
-            <Setter Property="Width" Value="54" />
-            <Setter Property="Height" Value="54" />
+            <Setter Property="Width" Value="112" />
+            <Setter Property="Height" Value="64" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
-            <Setter Property="FontFamily" Value="Segoe UI Symbol" />
-            <Setter Property="FontSize" Value="21" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="15" />
             <Setter Property="FontWeight" Value="Bold" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="White" />
             <Setter Property="Background" Value="#2563EB" />
-            <Setter Property="BorderBrush" Value="#60A5FA" />
+            <Setter Property="BorderBrush" Value="#93C5FD" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="16">
-                            <Border.Effect>
-                                <DropShadowEffect Color="#2563EB" BlurRadius="18" ShadowDepth="0" Opacity="0.28" />
-                            </Border.Effect>
+                        <Grid>
+                            <Border CornerRadius="20"
+                                    Background="#60A5FA"
+                                    Opacity="0.22"
+                                    Margin="2" />
+                            <Border x:Name="Bd"
+                                    CornerRadius="20"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#2563EB" BlurRadius="24" ShadowDepth="0" Opacity="0.42" />
+                                </Border.Effect>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"
+                                                  TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3B82F6" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#BFDBFE" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1D4ED8" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TransportButton" TargetType="Button">
+            <Setter Property="Width" Value="62" />
+            <Setter Property="Height" Value="62" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="Foreground" Value="#E5E7EB" />
+            <Setter Property="Background" Value="#101B2E" />
+            <Setter Property="BorderBrush" Value="#263B59" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Glow" CornerRadius="18" Background="#60A5FA" Opacity="0" Margin="2" />
+                            <Border x:Name="Bd" CornerRadius="18" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#172945" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#60A5FA" />
+                                <Setter TargetName="Glow" Property="Opacity" Value="0.15" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#0B1324" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.42" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TransportPrimaryButton" TargetType="Button" BasedOn="{StaticResource TransportButton}">
+            <Setter Property="Width" Value="76" />
+            <Setter Property="Height" Value="70" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#2563EB" Offset="0" />
+                        <GradientStop Color="#4F46E5" Offset="1" />
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="BorderBrush" Value="#BFDBFE" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border CornerRadius="20" Background="#60A5FA" Opacity="0.20" Margin="0" />
+                            <Border x:Name="Bd" CornerRadius="20" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#2563EB" BlurRadius="20" ShadowDepth="0" Opacity="0.35" />
+                                </Border.Effect>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#DBEAFE" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.84" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.42" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PlayerPillButton" TargetType="Button">
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Foreground" Value="#E5EEF8" />
+            <Setter Property="Background" Value="#101C31" />
+            <Setter Property="BorderBrush" Value="#28405E" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="14">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#1D64F2" />
+                                <Setter TargetName="Bd" Property="Background" Value="#182A46" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#60A5FA" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#1E40AF" />
+                                <Setter TargetName="Bd" Property="Background" Value="#0A1423" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
@@ -130,7 +263,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="72" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="104" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0" Background="#0B1220" BorderBrush="#1E293B" BorderThickness="0,0,0,1">
@@ -221,8 +354,10 @@
                     <MediaElement x:Name="Player"
                                   LoadedBehavior="Manual"
                                   UnloadedBehavior="Manual"
+                                  ScrubbingEnabled="True"
                                   Stretch="Uniform"
                                   MediaOpened="Player_MediaOpened"
+                                  MediaFailed="Player_MediaFailed"
                                   MediaEnded="Player_MediaEnded"
                                   HorizontalAlignment="Stretch"
                                   VerticalAlignment="Stretch"
@@ -234,6 +369,21 @@
                             </TransformGroup>
                         </MediaElement.RenderTransform>
                     </MediaElement>
+
+                    <Border x:Name="CodecFallbackPanel" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="580" Background="#F20B1220" BorderBrush="#F97316" BorderThickness="1" CornerRadius="18" Padding="22" Panel.ZIndex="50">
+                        <StackPanel>
+                            <TextBlock Text="코덱 미지원" Foreground="#FDBA74" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="이 PC에서 이 영상의 비디오 코덱을 지원하지 않아 화면이 표시되지 않을 수 있습니다. 아래 버튼으로 Windows 호환 MP4로 변환할 수 있습니다." TextWrapping="Wrap" Foreground="#E5E7EB" FontSize="13" Margin="0,10,0,0" />
+                            <TextBlock x:Name="CodecDetailText" Text="" TextWrapping="Wrap" Foreground="#94A3B8" FontSize="12" Margin="0,10,0,0" />
+                            <TextBlock x:Name="CodecFfmpegPathText" Text="" TextWrapping="Wrap" Foreground="#93C5FD" FontSize="12" Margin="0,6,0,0" />
+                            <TextBlock x:Name="CodecProgressText" Text="" TextWrapping="Wrap" Foreground="#A7F3D0" FontSize="12" Margin="0,10,0,0" />
+                            <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                <Button x:Name="ConvertCompatibleButton" Content="호환 영상으로 변환" Style="{StaticResource GhostButton}" Width="148" Height="38" Click="ConvertCompatible_Click" Margin="0,0,8,0" />
+                                <Button x:Name="OpenTempExternalButton" Content="외부 플레이어로 열기" Style="{StaticResource GhostButton}" Width="148" Height="38" Click="OpenTempExternal_Click" Margin="0,0,8,0" />
+                                <Button x:Name="CloseCodecPanelButton" Content="닫기" Style="{StaticResource GhostButton}" Width="70" Height="38" Click="CloseCodecPanel_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
 
                     <Border x:Name="VideoGestureHint" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24" Background="#CC0B1220" BorderBrush="#334155" BorderThickness="1" CornerRadius="12" Padding="12" Visibility="Collapsed" IsHitTestVisible="False">
                         <StackPanel Orientation="Horizontal">
@@ -269,38 +419,85 @@
             </Border>
         </Grid>
 
-        <Border Grid.Row="2" Background="#0B1220" BorderBrush="#1E293B" BorderThickness="0,1,0,0">
-            <Grid Margin="18,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+        <Border Grid.Row="2" Background="#0B1220" BorderBrush="#1E293B" BorderThickness="0,1,0,0" MinHeight="126">
+            <Border Margin="18,12" Padding="10" CornerRadius="24" BorderBrush="#1E3A5F" BorderThickness="1">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#08111E" Offset="0" />
+                        <GradientStop Color="#0B1830" Offset="0.45" />
+                        <GradientStop Color="#08111E" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <Border Background="#07111F" BorderBrush="#1F2F46" BorderThickness="1" CornerRadius="18" Padding="7" VerticalAlignment="Center" Margin="0,0,8,0">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button x:Name="StopButton" Content="■" ToolTip="정지" Style="{StaticResource PlayerRoundButton}" Click="Stop_Click" />
-                        <Button x:Name="PlayButton" Content="▶" ToolTip="재생/일시정지" Style="{StaticResource PlayerPrimaryButton}" Click="PlayPause_Click" />
-                    </StackPanel>
-                </Border>
+                    <Border x:Name="TransportCluster" Grid.Column="0" Background="#07111F" BorderBrush="#20324A" BorderThickness="1" CornerRadius="20" Padding="12" MinHeight="84" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="StopButton" ToolTip="정지" Style="{StaticResource TransportButton}" Click="Stop_Click">
+                                <StackPanel>
+                                    <TextBlock Text="■" FontSize="15" FontWeight="Black" TextAlignment="Center" HorizontalAlignment="Center" />
+                                    <TextBlock Text="정지" FontSize="10" FontWeight="SemiBold" Foreground="#94A3B8" Margin="0,4,0,0" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="PlayButton" ToolTip="재생" Style="{StaticResource TransportPrimaryButton}" Click="Play_Click">
+                                <StackPanel>
+                                    <TextBlock Text="▶" FontSize="22" FontWeight="Black" TextAlignment="Center" HorizontalAlignment="Center" Margin="2,0,0,0" />
+                                    <TextBlock Text="재생" FontSize="10" FontWeight="Bold" Foreground="#E0F2FE" Margin="0,4,0,0" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="PauseButton" ToolTip="일시정지" Style="{StaticResource TransportButton}" Click="Pause_Click">
+                                <StackPanel>
+                                    <TextBlock Text="Ⅱ" FontSize="18" FontWeight="Black" TextAlignment="Center" HorizontalAlignment="Center" />
+                                    <TextBlock Text="일시정지" FontSize="10" FontWeight="SemiBold" Foreground="#94A3B8" Margin="0,4,0,0" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
 
-                <Grid Grid.Column="1" Margin="18,0" VerticalAlignment="Center">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Slider x:Name="PositionSlider" Grid.Row="0" Minimum="0" Maximum="1" ValueChanged="PositionSlider_ValueChanged" PreviewMouseDown="PositionSlider_PreviewMouseDown" PreviewMouseUp="PositionSlider_PreviewMouseUp" />
-                    <TextBlock x:Name="TimeText" Grid.Row="1" Text="00:00 / 00:00" Foreground="#94A3B8" FontSize="12" HorizontalAlignment="Left" Margin="2,4,0,0" />
+                    <Border x:Name="SeekCluster" Grid.Column="1" Margin="14,0" Padding="16,12" VerticalAlignment="Center" MinHeight="84" Background="#081321" BorderBrush="#1B314D" BorderThickness="1" CornerRadius="20">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="재생 위치" Foreground="#7DD3FC" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
+                                <TextBlock x:Name="TimeText" Grid.Column="1" Text="00:00 / 00:00" Foreground="#E2E8F0" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
+                            </Grid>
+                            <Slider x:Name="PositionSlider" Grid.Row="1" Minimum="0" Maximum="1" Margin="0,12,0,0" ValueChanged="PositionSlider_ValueChanged" PreviewMouseDown="PositionSlider_PreviewMouseDown" PreviewMouseUp="PositionSlider_PreviewMouseUp" />
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="UtilityCluster" Grid.Column="2" Background="#07111F" BorderBrush="#20324A" BorderThickness="1" CornerRadius="20" Padding="14,10" MinHeight="84" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="오디오" Foreground="#7DD3FC" FontWeight="SemiBold" FontSize="12" />
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0" VerticalAlignment="Center">
+                                    <Button x:Name="MuteButton" Content="🔊" ToolTip="음소거" Style="{StaticResource PlayerRoundButton}" Click="Mute_Click" Width="56" Height="44" Margin="0,0,8,0" />
+                                    <Slider x:Name="VolumeSlider" Width="114" Minimum="0" Maximum="100" Value="75" VerticalAlignment="Center" ValueChanged="VolumeSlider_ValueChanged" Margin="0,0,8,0" />
+                                    <TextBlock x:Name="VolumeValueText" Text="75%" Foreground="#E2E8F0" FontWeight="SemiBold" VerticalAlignment="Center" MinWidth="34" TextAlignment="Right" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <Border Width="1" Height="42" Background="#20324A" Margin="14,0" />
+
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button x:Name="RepeatButton" Content="반복 없음 ▾" ToolTip="반복 재생" Style="{StaticResource PlayerPillButton}" Width="112" Click="RepeatButton_Click" />
+                                <Button x:Name="VideoZoomOutButton" Content="−" ToolTip="줌 아웃" Style="{StaticResource PlayerPillButton}" Width="38" Margin="10,0,6,0" Click="ZoomOut_Click" />
+                                <Button x:Name="VideoZoomInButton" Content="+" ToolTip="줌 인" Style="{StaticResource PlayerPillButton}" Width="38" Click="ZoomIn_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </Grid>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="MuteButton" Content="🔊" ToolTip="음소거" Style="{StaticResource PlayerRoundButton}" Click="Mute_Click" />
-                    <Slider x:Name="VolumeSlider" Width="116" Minimum="0" Maximum="100" Value="75" VerticalAlignment="Center" ValueChanged="VolumeSlider_ValueChanged" Margin="6,0,12,0" />
-                    <Button x:Name="RepeatButton" Content="반복 없음 ▴" ToolTip="반복 재생" Style="{StaticResource GhostButton}" Width="118" Height="38" Click="RepeatButton_Click" />
-                    <Button x:Name="VideoZoomOutButton" Content="−" ToolTip="줌 아웃" Style="{StaticResource PlayerRoundButton}" Click="ZoomOut_Click" Margin="12,0,4,0" />
-                    <Button x:Name="VideoZoomInButton" Content="+" ToolTip="줌 인" Style="{StaticResource PlayerRoundButton}" Click="ZoomIn_Click" />
-                </StackPanel>
-            </Grid>
+            </Border>
         </Border>
     </Grid>
 </Window>

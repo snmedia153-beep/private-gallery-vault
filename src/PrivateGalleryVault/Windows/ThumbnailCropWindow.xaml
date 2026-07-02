@@ -24,7 +24,7 @@
                 <Border Grid.Row="0" Background="#081726" BorderBrush="#1E3047" BorderThickness="1" CornerRadius="18" Padding="16" Margin="0,0,0,16">
                     <StackPanel>
                         <TextBlock x:Name="HeaderText" Text="썸네일 크롭" FontSize="24" FontWeight="Bold" Foreground="{StaticResource Text}" />
-                        <TextBlock Text="드래그로 위치를 맞추고, 휠 또는 슬라이더로 확대/축소한 뒤 저장하세요. 결과는 1:1 정사각 썸네일로 저장됩니다."
+                        <TextBlock Text="드래그로 위치를 맞추고, 휠 또는 슬라이더로 확대/축소한 뒤 저장하세요. 원본 비율에 따라 최소 배율에서는 한쪽 방향 이동이 제한될 수 있습니다."
                                    Foreground="{StaticResource SubText}" Margin="0,6,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
@@ -40,7 +40,7 @@
                                         PreviewMouseMove="CropFrame_PreviewMouseMove"
                                         PreviewMouseLeftButtonUp="CropFrame_PreviewMouseLeftButtonUp"
                                         MouseLeave="CropFrame_MouseLeave">
-                                    <Canvas x:Name="CropCanvas" Width="480" Height="480" ClipToBounds="True">
+                                    <Canvas x:Name="CropCanvas" Width="480" Height="480" Background="#050B14" ClipToBounds="True">
                                         <Image x:Name="PreviewImage" Stretch="Fill" RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" />
                                     </Canvas>
                                 </Border>

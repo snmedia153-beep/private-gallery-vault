@@ -37,6 +37,22 @@ public sealed class MediaVaultService
         ".exe", ".msi", ".bat", ".cmd", ".ps1", ".vbs", ".js", ".jse", ".scr", ".com", ".pif", ".lnk"
     };
 
+    // Files in this list may be kept inside the encrypted vault, but they must not be
+    // opened directly through Windows shell execution from the app. Users can still
+    // export them intentionally and handle them outside the vault if needed.
+    private static readonly HashSet<string> DefaultOpenBlockedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".ade", ".adp", ".app", ".appref-ms", ".appx", ".appxbundle", ".application",
+        ".bas", ".cab", ".chm", ".cpl", ".crt", ".diagcab", ".fxp", ".gadget",
+        ".hta", ".inf", ".ins", ".isp", ".jar", ".jnlp", ".mad", ".maf",
+        ".mag", ".mam", ".maq", ".mar", ".mas", ".mat", ".mau", ".mav",
+        ".maw", ".mda", ".mdb", ".mde", ".mdt", ".mdw", ".mdz",
+        ".msc", ".msix", ".msixbundle", ".msh", ".msh1", ".msh2",
+        ".mshxml", ".msh1xml", ".msh2xml", ".ops", ".pcd", ".prf",
+        ".psd1", ".psm1", ".reg", ".scf", ".sct", ".shb", ".shs",
+        ".url", ".vb", ".vbe", ".ws", ".wsc", ".wsf", ".wsh", ".xbap", ".xll"
+    };
+
     public MediaVaultService(byte[] masterKey, DatabaseService db)
     {
         _masterKey = masterKey;
@@ -75,9 +91,18 @@ public sealed class MediaVaultService
 
     public MediaItem ImportMedia(string sourcePath, string topicId, string? sourceFingerprint = null)
     {
-        var item = PrepareMediaImport(sourcePath, topicId, sourceFingerprint);
-        _db.AddMedia(item);
-        return item;
+        MediaItem? item = null;
+        try
+        {
+            item = PrepareMediaImport(sourcePath, topicId, sourceFingerprint);
+            _db.AddMedia(item);
+            return item;
+        }
+        catch
+        {
+            CleanupPreparedImport(item);
+            throw;
+        }
     }
 
     public MediaItem PrepareMediaImport(string sourcePath, string topicId, string? sourceFingerprint = null)
@@ -98,55 +123,71 @@ public sealed class MediaVaultService
         var objectAbs = VaultPaths.ToAbsoluteVaultPath(objectRel);
         var thumbAbs = VaultPaths.ToAbsoluteVaultPath(thumbRel);
 
-        FileCryptoService.EncryptFile(_masterKey, sourcePath, objectAbs);
-
         string thumbSourceRel = string.Empty;
-        var capturedAt = TimeSpan.Zero;
-        byte[] thumb;
+
         try
         {
-            if (kind == MediaKind.Video && ThumbnailService.TryCreateVideoThumbnailSet(sourcePath, 480, out var videoThumb, out var sourceFrame, out capturedAt))
+            FileCryptoService.EncryptFile(_masterKey, sourcePath, objectAbs);
+
+            var capturedAt = TimeSpan.Zero;
+            byte[] thumb;
+            try
             {
-                thumb = videoThumb;
-                thumbSourceRel = VaultPaths.CreateThumbSourceRelativePath(id);
-                FileCryptoService.EncryptBytesToFile(_masterKey, sourceFrame, VaultPaths.ToAbsoluteVaultPath(thumbSourceRel));
+                if (kind == MediaKind.Video && ThumbnailService.TryCreateVideoThumbnailSet(sourcePath, 480, out var videoThumb, out var sourceFrame, out capturedAt))
+                {
+                    thumb = videoThumb;
+                    thumbSourceRel = VaultPaths.CreateThumbSourceRelativePath(id);
+                    FileCryptoService.EncryptBytesToFile(_masterKey, sourceFrame, VaultPaths.ToAbsoluteVaultPath(thumbSourceRel));
+                }
+                else
+                {
+                    thumb = ThumbnailService.CreateThumbnailBytes(sourcePath, kind);
+                }
             }
-            else
+            catch
             {
-                thumb = ThumbnailService.CreateThumbnailBytes(sourcePath, kind);
+                // 파일 암호화는 성공할 수 있지만, 파일명/코덱/메타데이터 문제로 썸네일 생성만 실패하는 경우가 있습니다.
+                // 이 경우 가져오기 자체를 실패시키지 않고 안전한 플레이스홀더 썸네일로 저장합니다.
+                thumb = ThumbnailService.CreatePlaceholderBytes(kind, Path.GetExtension(sourcePath), 480);
+                if (!string.IsNullOrWhiteSpace(thumbSourceRel))
+                {
+                    TryDeleteVaultFile(thumbSourceRel);
+                    thumbSourceRel = string.Empty;
+                }
             }
+            FileCryptoService.EncryptBytesToFile(_masterKey, thumb, thumbAbs);
+
+            var info = new FileInfo(sourcePath);
+            var item = new MediaItem
+            {
+                Id = id,
+                TopicId = topicId,
+                Kind = kind,
+                OriginalName = Path.GetFileName(sourcePath),
+                Extension = Path.GetExtension(sourcePath),
+                ObjectPath = objectRel.Replace('\\', '/'),
+                ThumbPath = thumbRel.Replace('\\', '/'),
+                ThumbSourcePath = thumbSourceRel.Replace('\\', '/'),
+                SourceHash = normalizedSourceFingerprint,
+                SizeBytes = info.Length,
+                DurationSeconds = 0,
+                CreatedUtc = DateTime.UtcNow,
+                UpdatedUtc = DateTime.UtcNow
+            };
+
+            if (kind == MediaKind.Image)
+                TryFillImageDimensions(sourcePath, item);
+
+            return item;
         }
         catch
         {
-            // 파일 암호화는 성공할 수 있지만, 파일명/코덱/메타데이터 문제로 썸네일 생성만 실패하는 경우가 있습니다.
-            // 이 경우 가져오기 자체를 실패시키지 않고 안전한 플레이스홀더 썸네일로 저장합니다.
-            thumb = ThumbnailService.CreatePlaceholderBytes(kind, Path.GetExtension(sourcePath), 480);
-            thumbSourceRel = string.Empty;
+            TryDeleteVaultFile(objectRel);
+            TryDeleteVaultFile(thumbRel);
+            if (!string.IsNullOrWhiteSpace(thumbSourceRel))
+                TryDeleteVaultFile(thumbSourceRel);
+            throw;
         }
-        FileCryptoService.EncryptBytesToFile(_masterKey, thumb, thumbAbs);
-
-        var info = new FileInfo(sourcePath);
-        var item = new MediaItem
-        {
-            Id = id,
-            TopicId = topicId,
-            Kind = kind,
-            OriginalName = Path.GetFileName(sourcePath),
-            Extension = Path.GetExtension(sourcePath),
-            ObjectPath = objectRel.Replace('\\', '/'),
-            ThumbPath = thumbRel.Replace('\\', '/'),
-            ThumbSourcePath = thumbSourceRel.Replace('\\', '/'),
-            SourceHash = normalizedSourceFingerprint,
-            SizeBytes = info.Length,
-            DurationSeconds = 0,
-            CreatedUtc = DateTime.UtcNow,
-            UpdatedUtc = DateTime.UtcNow
-        };
-
-        if (kind == MediaKind.Image)
-            TryFillImageDimensions(sourcePath, item);
-
-        return item;
     }
 
     public BitmapImage LoadThumbnail(MediaItem item)
@@ -280,7 +321,9 @@ public sealed class MediaVaultService
 
     public string DecryptVideoToTemp(MediaItem item)
     {
-        var temp = TempFileService.CreateTempMediaPath(item.Id, item.Extension);
+        // MediaElement can keep the previous temp file handle for a short time after the viewer closes.
+        // Use a unique temp path for each open so reopening the same video does not fail with file-in-use.
+        var temp = TempFileService.CreateUniqueTempMediaPath(item.Id, item.Extension);
         FileCryptoService.DecryptFileToPath(_masterKey, VaultPaths.ToAbsoluteVaultPath(item.ObjectPath), temp);
         return temp;
     }
@@ -294,7 +337,14 @@ public sealed class MediaVaultService
 
     public void OpenWithDefaultApp(MediaItem item)
     {
+        if (IsDefaultOpenBlocked(item))
+        {
+            var ext = string.IsNullOrWhiteSpace(item.Extension) ? Path.GetExtension(item.OriginalName) : item.Extension;
+            throw new InvalidOperationException($"보안상 '{ext}' 형식은 Windows 기본 앱으로 바로 열 수 없습니다. 필요하면 파일을 내보낸 뒤 직접 확인해 주세요.");
+        }
+
         var temp = DecryptFileToTemp(item);
+        AppLogger.Warn($"Default app open created temporary decrypted file id={item.Id}; kind={item.Kind}");
         var psi = new ProcessStartInfo(temp)
         {
             UseShellExecute = true,
@@ -317,6 +367,45 @@ public sealed class MediaVaultService
         _db.DeleteMedia(item.Id);
     }
 
+    public void CleanupPreparedImport(MediaItem? item)
+    {
+        if (item == null)
+            return;
+
+        TryDeleteVaultFile(item.ObjectPath);
+        TryDeleteVaultFile(item.ThumbPath);
+        if (!string.IsNullOrWhiteSpace(item.ThumbSourcePath))
+            TryDeleteVaultFile(item.ThumbSourcePath);
+    }
+
+    public static bool IsSecuritySensitiveExtension(string? extensionOrPath)
+    {
+        var ext = extensionOrPath ?? string.Empty;
+        if (!ext.StartsWith('.'))
+            ext = Path.GetExtension(ext);
+
+        return !string.IsNullOrWhiteSpace(ext) &&
+               (BlockedExecutableExtensions.Contains(ext) || DefaultOpenBlockedExtensions.Contains(ext));
+    }
+
+    public static bool IsSecuritySensitiveFile(string? path)
+    {
+        return IsSecuritySensitiveExtension(path);
+    }
+
+    public static bool IsDefaultOpenBlocked(MediaItem item)
+    {
+        var ext = string.IsNullOrWhiteSpace(item.Extension) ? Path.GetExtension(item.OriginalName) : item.Extension;
+        return IsSecuritySensitiveExtension(ext);
+    }
+
+    public static string GetSecurityWarningText(MediaItem item)
+    {
+        var ext = string.IsNullOrWhiteSpace(item.Extension) ? Path.GetExtension(item.OriginalName) : item.Extension;
+        ext = string.IsNullOrWhiteSpace(ext) ? "알 수 없는 형식" : ext.ToLowerInvariant();
+        return $"'{ext}' 형식은 Windows에서 실행성 동작을 할 수 있어 바로 열기를 제한합니다. 보관은 가능하지만, 내보내기 후 직접 확인할 때도 주의하세요.";
+    }
+
     private static void TryDeleteVaultFile(string relativePath)
     {
         try
@@ -334,16 +423,15 @@ public sealed class MediaVaultService
         var exportDir = Path.Combine(TempFileService.CurrentSessionRoot, "external-drag");
         Directory.CreateDirectory(exportDir);
 
-        var fileName = SanitizeFileName(item.OriginalName);
-        if (string.IsNullOrWhiteSpace(Path.GetExtension(fileName)) && !string.IsNullOrWhiteSpace(item.Extension))
-            fileName += item.Extension.StartsWith('.') ? item.Extension : "." + item.Extension;
+        var ext = string.IsNullOrWhiteSpace(item.Extension) ? Path.GetExtension(item.OriginalName) : item.Extension;
+        var fileName = $"media_{item.Id[..Math.Min(12, item.Id.Length)]}{(ext.StartsWith('.') ? ext : "." + ext)}";
 
         var targetPath = Path.Combine(exportDir, fileName);
         if (File.Exists(targetPath))
         {
             var baseName = Path.GetFileNameWithoutExtension(fileName);
-            var ext = Path.GetExtension(fileName);
-            targetPath = Path.Combine(exportDir, $"{baseName}_{item.Id[..Math.Min(8, item.Id.Length)]}{ext}");
+            var duplicateExt = Path.GetExtension(fileName);
+            targetPath = Path.Combine(exportDir, $"{baseName}_{item.Id[..Math.Min(8, item.Id.Length)]}{duplicateExt}");
         }
 
         FileCryptoService.DecryptFileToPath(_masterKey, VaultPaths.ToAbsoluteVaultPath(item.ObjectPath), targetPath);

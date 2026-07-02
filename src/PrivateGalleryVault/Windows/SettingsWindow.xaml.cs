@@ -60,7 +60,7 @@ public partial class SettingsWindow : Window
         }
         catch
         {
-            // 드래그 시작 중 마우스 상태가 바뀌면 DragMove가 예외를 던질 수 있습니다.
+            // DragMove can throw if the mouse state changes during the drag start.
         }
     }
 

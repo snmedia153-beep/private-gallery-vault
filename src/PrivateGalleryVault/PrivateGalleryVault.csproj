@@ -8,6 +8,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**\*.bak;**\*.bak-*;**\*.backup;**\*.orig;**\*.tmp</DefaultItemExcludes>
     <AssemblyName>PrivateGalleryVault</AssemblyName>
     <RootNamespace>PrivateGalleryVault</RootNamespace>
   </PropertyGroup>
@@ -17,9 +18,21 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="**\*.bak*" />
+    <Page Remove="**\*.bak*" />
+    <Resource Remove="**\*.bak*" />
+    <Content Remove="**\*.bak*" />
+    <None Remove="**\*.bak*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Assets\Images\*.png" />
     <None Remove="Assets\VideoPlayer\*.png" />
     <Resource Include="Assets\Images\*.png" />
     <Resource Include="Assets\VideoPlayer\*.png" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="tools\ffmpeg\ffmpeg.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('tools\ffmpeg\ffmpeg.exe')" />
+  </ItemGroup>
+
 </Project>

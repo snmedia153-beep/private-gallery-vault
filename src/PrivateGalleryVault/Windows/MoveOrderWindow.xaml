@@ -87,7 +87,7 @@
                     </StackPanel>
                 </Border>
 
-                <TextBlock Text="이동 적용 시 파일 순서가 즉시 저장되고, 대상 페이지로 자동 이동합니다."
+                <TextBlock Text="이동 적용 시 파일 순서가 즉시 저장되고, 현재 보고 있던 페이지를 유지합니다."
                            Foreground="{StaticResource MutedText}" FontSize="12" Margin="2,12,0,0" />
                 </StackPanel>
             </ScrollViewer>

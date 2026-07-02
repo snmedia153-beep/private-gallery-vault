@@ -19,7 +19,7 @@ public sealed class VaultContext : IDisposable
         ActivityLogs = new ActivityLogService(Database);
         Tags = new TagService(Database);
         Duplicates = new DuplicateService(Database);
-        Backups = new BackupRestoreService();
+        Backups = new BackupRestoreService(Database);
     }
 
     public void Dispose()

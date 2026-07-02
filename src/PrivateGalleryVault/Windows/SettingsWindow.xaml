@@ -10,7 +10,7 @@
         Background="Transparent"
         ShowInTaskbar="False">
     <Grid Background="Transparent" TextElement.Foreground="{StaticResource Text}">
-        <!-- 설정 창이 메인 화면과 겹쳐 보이지 않도록 외곽 여백을 둡니다. -->
+        <!-- Shadow breathing room: keeps the settings window visually separated from MainWindow. -->
         <Border Margin="22"
                 Background="{StaticResource AppBackground}"
                 BorderBrush="#3B82F6"
@@ -28,7 +28,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- 사용자 지정 다크 테마 제목 영역 -->
+                <!-- Custom dark title/header area -->
                 <Border Grid.Row="0"
                         Background="#0A1423"
                         BorderBrush="{StaticResource Stroke}"
@@ -61,7 +61,7 @@
                                        FontSize="27"
                                        FontWeight="Bold"
                                        Foreground="{StaticResource Text}" />
-                            <TextBlock Text="보관함 보안, 비밀번호, 자동 잠금 정책을 관리합니다."
+                            <TextBlock Text="Vault 보안, 비밀번호, 자동 잠금 정책을 관리합니다."
                                        Foreground="{StaticResource SubText}"
                                        Margin="0,5,0,0" />
                         </StackPanel>

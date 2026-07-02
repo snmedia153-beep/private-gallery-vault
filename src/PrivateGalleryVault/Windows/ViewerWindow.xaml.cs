@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -29,6 +30,11 @@ public partial class ViewerWindow : Window
     private bool _isDraggingSlider;
     private bool _isMuted;
     private double _lastVolume = 0.75;
+    private bool _wasPlayingBeforeSeek;
+    private bool _suppressVolumePersistence;
+    private bool _videoVolumeSliderInitialized;
+    private bool _isConvertingCompatibleVideo;
+    private VideoPlayerPreferences _videoPlayerPreferences = new();
 
     private double _imageZoom = 1.0;
     private bool _isImagePanning;
@@ -55,10 +61,13 @@ public partial class ViewerWindow : Window
 
     public ViewerWindow(VaultContext context, MediaItem item)
     {
-        InitializeComponent();
         _context = context;
         _item = item;
         _settings = AppSettingsService.Load();
+        LoadVideoPlaybackPreferences();
+
+        InitializeComponent();
+
         TitleText.Text = item.OriginalName;
         MetaText.Text = $"{(item.Kind == MediaKind.Video ? "동영상" : "이미지")} · {FormatBytes(item.SizeBytes)} · {item.CreatedUtc.ToLocalTime():yyyy.MM.dd HH:mm}";
 
@@ -71,15 +80,111 @@ public partial class ViewerWindow : Window
         KeyDown += ViewerWindow_KeyDown;
     }
 
+    private static VideoRepeatMode ParseRepeatMode(string? value)
+    {
+        return (value ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "current" => VideoRepeatMode.Current,
+            "playlist" => VideoRepeatMode.Playlist,
+            _ => VideoRepeatMode.None
+        };
+    }
+
+    private static string RepeatModeToStorageValue(VideoRepeatMode mode)
+    {
+        return mode switch
+        {
+            VideoRepeatMode.Current => "current",
+            VideoRepeatMode.Playlist => "playlist",
+            _ => "none"
+        };
+    }
+
+    private void LoadVideoPlaybackPreferences()
+    {
+        var hasSavedVideoPreferences = VideoPlayerPreferencesService.HasSavedPreferences();
+        _videoPlayerPreferences = VideoPlayerPreferencesService.Load();
+
+        var savedVolume = hasSavedVideoPreferences
+            ? _videoPlayerPreferences.LastVolume
+            : _settings.LastVideoVolume;
+
+        if (double.IsNaN(savedVolume) || double.IsInfinity(savedVolume))
+            savedVolume = 0.75;
+
+        // 0% volume is a valid saved choice, so do not force it back to 75%.
+        _lastVolume = Math.Clamp(savedVolume, 0.0, 1.0);
+        _isMuted = hasSavedVideoPreferences ? _videoPlayerPreferences.IsMuted : _settings.PlayVideosMuted;
+
+        var savedRepeatMode = hasSavedVideoPreferences && !string.IsNullOrWhiteSpace(_videoPlayerPreferences.RepeatMode)
+            ? _videoPlayerPreferences.RepeatMode
+            : _settings.LastVideoRepeatMode;
+        _repeatMode = ParseRepeatMode(savedRepeatMode);
+    }
+
+    private void PersistVideoPlaybackPreferences()
+    {
+        if (_item.Kind != MediaKind.Video)
+            return;
+
+        try
+        {
+            if (_videoVolumeSliderInitialized && VolumeSlider != null)
+                _lastVolume = Math.Clamp(VolumeSlider.Value / 100.0, 0.0, 1.0);
+
+            _settings.LastVideoVolume = _lastVolume;
+            _settings.LastVideoVolumePercent = _lastVolume * 100.0;
+            _settings.PlayVideosMuted = _isMuted;
+            _settings.LastVideoRepeatMode = RepeatModeToStorageValue(_repeatMode);
+            AppSettingsService.Save(_settings);
+
+            VideoPlayerPreferencesService.Save(_lastVolume, _isMuted, RepeatModeToStorageValue(_repeatMode));
+        }
+        catch
+        {
+        }
+    }
+
+    private void SetPlaybackState(bool isPlaying)
+    {
+        _isPlaying = isPlaying;
+        UpdatePlaybackButtons();
+    }
+
+    private void UpdatePlaybackButtons()
+    {
+        if (PlayButton == null || PauseButton == null || StopButton == null)
+            return;
+
+        var isVideo = _item.Kind == MediaKind.Video;
+        PlayButton.IsEnabled = isVideo && !_isPlaying;
+        PauseButton.IsEnabled = isVideo && _isPlaying;
+        StopButton.IsEnabled = isVideo;
+    }
+
     private void ViewerWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        if (_item.Kind == MediaKind.Image)
+        try
         {
-            ShowImageViewer();
-            return;
-        }
+            AppLogger.LogMediaOpenStart(_item.Id, _item.Kind.ToString(), _item.OriginalName, _item.SizeBytes);
 
-        ShowVideoViewer();
+            if (_item.Kind == MediaKind.Image)
+            {
+                ShowImageViewer();
+                AppLogger.LogMediaOpenEnd(_item.Id, _item.Kind.ToString(), _item.OriginalName);
+                return;
+            }
+
+            ShowVideoViewer();
+            AppLogger.LogMediaOpenEnd(_item.Id, _item.Kind.ToString(), _item.OriginalName);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"Viewer load failed id={_item.Id}; kind={_item.Kind}", ex);
+            MessageDialog.Show(this, "미디어 뷰어를 열 수 없습니다. 오류 로그를 저장했습니다.\n\n" + ex.Message + "\n\n로그 위치: " + AppLogger.LogDirectory,
+                "미디어 뷰어", MessageBoxButton.OK, MessageBoxImage.Error);
+            Close();
+        }
     }
 
     private void ShowImageViewer()
@@ -88,18 +193,15 @@ public partial class ViewerWindow : Window
         ImageHint.Visibility = Visibility.Visible;
         VideoHost.Visibility = Visibility.Collapsed;
         VideoGestureHint.Visibility = Visibility.Collapsed;
+        CodecFallbackPanel.Visibility = Visibility.Collapsed;
 
-        PlayButton.Visibility = Visibility.Collapsed;
-        StopButton.Visibility = Visibility.Collapsed;
-        PositionSlider.Visibility = Visibility.Collapsed;
-        TimeText.Visibility = Visibility.Collapsed;
-        MuteButton.Visibility = Visibility.Collapsed;
-        VolumeSlider.Visibility = Visibility.Collapsed;
-        RepeatButton.Visibility = Visibility.Collapsed;
-        VideoZoomOutButton.Visibility = Visibility.Collapsed;
-        VideoZoomInButton.Visibility = Visibility.Collapsed;
+        TransportCluster.Visibility = Visibility.Collapsed;
+        SeekCluster.Visibility = Visibility.Collapsed;
+        UtilityCluster.Visibility = Visibility.Collapsed;
 
+        AppLogger.Info($"ImageLoadStart id={_item.Id}");
         ImageView.Source = _context.Media.LoadImage(_item);
+        AppLogger.Info($"ImageLoadEnd id={_item.Id}; pixel={((ImageView.Source as BitmapSource)?.PixelWidth ?? 0)}x{((ImageView.Source as BitmapSource)?.PixelHeight ?? 0)}");
         Dispatcher.BeginInvoke(new Action(FitToWindow), DispatcherPriority.Loaded);
     }
 
@@ -109,40 +211,49 @@ public partial class ViewerWindow : Window
         ImageHint.Visibility = Visibility.Collapsed;
         VideoHost.Visibility = Visibility.Visible;
         VideoGestureHint.Visibility = Visibility.Collapsed;
+        CodecFallbackPanel.Visibility = Visibility.Collapsed;
+        CodecDetailText.Text = string.Empty;
+        CodecFfmpegPathText.Text = string.Empty;
+        CodecProgressText.Text = string.Empty;
 
         ActualSizeButton.Content = "원본 비율";
         FitButton.Content = "화면 맞춤";
         ZoomResetButton.Content = "100%";
-        PositionSlider.Visibility = Visibility.Visible;
-        TimeText.Visibility = Visibility.Visible;
-        PlayButton.Visibility = Visibility.Visible;
-        StopButton.Visibility = Visibility.Visible;
-        MuteButton.Visibility = Visibility.Visible;
-        VolumeSlider.Visibility = Visibility.Visible;
-        RepeatButton.Visibility = Visibility.Visible;
-        VideoZoomOutButton.Visibility = Visibility.Visible;
-        VideoZoomInButton.Visibility = Visibility.Visible;
+        TransportCluster.Visibility = Visibility.Visible;
+        SeekCluster.Visibility = Visibility.Visible;
+        UtilityCluster.Visibility = Visibility.Visible;
 
+        AppLogger.Info($"VideoDecryptStart id={_item.Id}");
         _tempVideoPath = _context.Media.DecryptVideoToTemp(_item);
+        AppLogger.Info($"VideoDecryptEnd id={_item.Id}; temp={_tempVideoPath}");
+
+        LoadVideoPlaybackPreferences();
+
+        _suppressVolumePersistence = true;
+        VolumeSlider.Value = _lastVolume * 100.0;
+        _suppressVolumePersistence = false;
+        _videoVolumeSliderInitialized = true;
+
+        Player.ScrubbingEnabled = true;
         Player.Source = new Uri(_tempVideoPath, UriKind.Absolute);
-        Player.Volume = VolumeSlider.Value / 100.0;
-        _isMuted = _settings.PlayVideosMuted;
+        Player.Volume = _lastVolume;
         Player.IsMuted = _isMuted;
-        MuteButton.Content = _isMuted ? "🔇" : "🔊";
-        MuteButton.ToolTip = _isMuted ? "음소거 해제" : "음소거";
-        Player.Play();
-        _isPlaying = true;
-        PlayButton.Content = "Ⅱ";
+        UpdateMuteUi();
+        UpdateVolumeUi();
         UpdateRepeatUi();
+
+        Player.Play();
+        SetPlaybackState(true);
         _timer.Start();
     }
 
     public void PrepareForVaultLock()
     {
         _closingForVaultLock = true;
+        PersistVideoPlaybackPreferences();
 
-        // 민감한 영상 프레임이 즉시 사라지도록 먼저 창을 숨깁니다.
-        // MediaElement 정리는 UI 스레드를 막을 수 있으므로 이 경로는 가볍게 유지합니다.
+        // Hide first so sensitive video frames disappear immediately.
+        // MediaElement shutdown can occasionally block the UI thread, so keep this path light.
         try { Hide(); } catch { }
         FastDetachMediaForClose(releaseSource: false);
     }
@@ -152,16 +263,20 @@ public partial class ViewerWindow : Window
         if (_item.Kind != MediaKind.Video)
             return;
 
-        // MediaElement를 정리하기 전에 창을 먼저 숨겨 영상 디코더/임시 파일 해제 중 발생하는 체감 멈춤을 줄입니다.
+        PersistVideoPlaybackPreferences();
+
+        // Make the window disappear before touching MediaElement. This prevents the perceived
+        // freeze that can happen while WPF releases a video decoder/temporary file.
         try { Hide(); } catch { }
-        FastDetachMediaForClose(releaseSource: false);
+        FastDetachMediaForClose(releaseSource: true);
     }
 
     private void ViewerWindow_Closed(object? sender, EventArgs e)
     {
-        FastDetachMediaForClose(releaseSource: false);
+        AppLogger.Info($"ViewerClosed id={_item.Id}; kind={_item.Kind}");
+        FastDetachMediaForClose(releaseSource: true);
 
-        if (!string.IsNullOrWhiteSpace(_tempVideoPath) && !_closingForVaultLock)
+        if (!string.IsNullOrWhiteSpace(_tempVideoPath) && !_closingForVaultLock && _settings.DeleteTempMediaAfterPlayback)
             _ = DeleteTempVideoLaterAsync(_tempVideoPath);
     }
 
@@ -183,16 +298,17 @@ public partial class ViewerWindow : Window
             Player.IsMuted = true;
             Player.Volume = 0;
             Player.Pause();
-            _isPlaying = false;
+            SetPlaybackState(false);
 
-            // 일부 환경에서는 Stop()이 모달 영상 창 종료 시 UI 스레드를 몇 초간 막을 수 있습니다.
-            // 즉시 경로에서는 Source 해제도 미루고, 임시 파일은 지연 재시도로 정리합니다.
+            // Stop() is intentionally avoided here. On some machines/codecs it can block the UI
+            // thread for a few seconds when a modal video window closes. Releasing Source is still
+            // important so reopening the same video does not leave the previous temp file locked.
             if (releaseSource)
                 Player.Source = null;
         }
         catch
         {
-            // 종료 중 미디어 정리 예외는 사용자 흐름을 방해하지 않습니다.
+            // Ignore media shutdown exceptions while closing.
         }
     }
 
@@ -201,7 +317,7 @@ public partial class ViewerWindow : Window
         if (string.IsNullOrWhiteSpace(path))
             return;
 
-        // UI를 막지 않도록 MediaElement와 디코더가 파일 핸들을 해제할 시간을 둡니다.
+        // Give MediaElement/decoder time to release the file handle without blocking the UI.
         await Task.Delay(1200).ConfigureAwait(false);
 
         for (var attempt = 0; attempt < 8; attempt++)
@@ -214,7 +330,7 @@ public partial class ViewerWindow : Window
             }
             catch
             {
-                // 아래 지연 재시도에서 다시 정리합니다.
+                // Try again below.
             }
 
             await Task.Delay(700).ConfigureAwait(false);
@@ -502,32 +618,187 @@ public partial class ViewerWindow : Window
     private void PlayPause_Click(object sender, RoutedEventArgs e)
     {
         if (_item.Kind != MediaKind.Video) return;
+
         if (_isPlaying)
         {
-            Player.Pause();
-            _isPlaying = false;
-            PlayButton.Content = "▶";
+            Pause_Click(sender, e);
         }
         else
         {
-            Player.Play();
-            _isPlaying = true;
-            PlayButton.Content = "Ⅱ";
+            Play_Click(sender, e);
         }
+    }
+
+    private void Play_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video) return;
+
+        Player.Play();
+        SetPlaybackState(true);
+    }
+
+    private void Pause_Click(object sender, RoutedEventArgs e)
+    {
+        if (_item.Kind != MediaKind.Video) return;
+
+        Player.Pause();
+        SetPlaybackState(false);
     }
 
     private void Stop_Click(object sender, RoutedEventArgs e)
     {
         if (_item.Kind != MediaKind.Video) return;
+
         Player.Stop();
         Player.Position = TimeSpan.Zero;
-        _isPlaying = false;
-        PlayButton.Content = "▶";
         PositionSlider.Value = 0;
+        TimeText.Text = Player.NaturalDuration.HasTimeSpan
+            ? $"00:00 / {FormatTime(Player.NaturalDuration.TimeSpan)}"
+            : "00:00 / 00:00";
+        SetPlaybackState(false);
+    }
+
+    private void Player_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+        AppLogger.Error($"VideoMediaFailed id={_item.Id}", e.ErrorException);
+        ShowCodecFallback(e.ErrorException);
+    }
+
+    private void ShowCodecFallback(Exception? exception)
+    {
+        try { Player.Pause(); } catch { }
+        SetPlaybackState(false);
+        CodecFallbackPanel.Visibility = Visibility.Visible;
+        CodecDetailText.Text = exception == null
+            ? "Windows 기본 미디어 엔진이 이 영상의 비디오 트랙을 표시하지 못했습니다."
+            : $"오류: {exception.Message}\n로그 위치: {AppLogger.LogDirectory}";
+
+        if (FfmpegVideoConversionService.TryFindFfmpeg(out var ffmpegPath))
+        {
+            CodecFfmpegPathText.Text = "FFmpeg 감지됨: " + ffmpegPath;
+            ConvertCompatibleButton.IsEnabled = !_isConvertingCompatibleVideo;
+        }
+        else
+        {
+            CodecFfmpegPathText.Text = "ffmpeg.exe를 찾지 못했습니다. src\\PrivateGalleryVault\\tools\\ffmpeg\\ffmpeg.exe 위치에 넣은 뒤 다시 빌드하거나, publish\\win-x64\\tools\\ffmpeg\\ffmpeg.exe에 넣어 주세요.";
+            ConvertCompatibleButton.IsEnabled = false;
+        }
+    }
+
+    private async void ConvertCompatible_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isConvertingCompatibleVideo)
+            return;
+
+        if (string.IsNullOrWhiteSpace(_tempVideoPath) || !File.Exists(_tempVideoPath))
+        {
+            MessageDialog.Show(this, "변환할 임시 영상 파일을 찾을 수 없습니다. 영상을 다시 열어 주세요.", "호환 영상 변환", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        _isConvertingCompatibleVideo = true;
+        ConvertCompatibleButton.IsEnabled = false;
+        OpenTempExternalButton.IsEnabled = false;
+        CloseCodecPanelButton.IsEnabled = false;
+        CodecProgressText.Text = "호환 MP4로 변환을 시작합니다...";
+
+        var sourcePath = _tempVideoPath;
+        var outputPath = TempFileService.CreateAnonymousTempMediaPath(_item.Id, ".mp4", "compatible");
+
+        try
+        {
+            try
+            {
+                Player.Stop();
+                Player.Source = null;
+                SetPlaybackState(false);
+            }
+            catch
+            {
+                // Continue conversion even if MediaElement release is delayed.
+            }
+
+            var progress = new Progress<string>(line => CodecProgressText.Text = "변환 중... " + TrimProgressLine(line));
+            var result = await FfmpegVideoConversionService.ConvertToCompatibleMp4Async(sourcePath, outputPath, progress);
+            if (!result.Success)
+            {
+                CodecProgressText.Text = "변환 실패. 로그를 확인해 주세요.";
+                MessageDialog.Show(this, "FFmpeg 변환에 실패했습니다.\n\n" + LastLogLines(result.Log), "호환 영상 변환", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var imported = _context.Media.ImportMedia(result.OutputPath, _item.TopicId);
+            HasChanges = true;
+            CodecProgressText.Text = "변환 완료: " + imported.OriginalName;
+            MessageDialog.Show(this,
+                "호환 영상 변환이 완료되어 같은 주제 폴더에 새 파일로 추가되었습니다.\n\n" + imported.OriginalName,
+                "호환 영상 변환",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error($"CompatibleVideoConvertError id={_item.Id}", ex);
+            CodecProgressText.Text = "변환 오류: " + ex.Message;
+            MessageDialog.Show(this, "호환 영상 변환 중 오류가 발생했습니다.\n\n" + ex.Message, "호환 영상 변환", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _isConvertingCompatibleVideo = false;
+            ConvertCompatibleButton.IsEnabled = FfmpegVideoConversionService.TryFindFfmpeg(out _);
+            OpenTempExternalButton.IsEnabled = true;
+            CloseCodecPanelButton.IsEnabled = true;
+        }
+    }
+
+    private void OpenTempExternal_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_tempVideoPath) || !File.Exists(_tempVideoPath))
+        {
+            MessageDialog.Show(this, "열 수 있는 임시 영상 파일이 없습니다.", "외부 플레이어", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(_tempVideoPath)
+            {
+                UseShellExecute = true,
+                WorkingDirectory = Path.GetDirectoryName(_tempVideoPath) ?? TempFileService.CurrentSessionRoot
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageDialog.Show(this, "외부 플레이어로 열지 못했습니다.\n\n" + ex.Message, "외부 플레이어", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void CloseCodecPanel_Click(object sender, RoutedEventArgs e)
+    {
+        CodecFallbackPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private static string BuildCompatibleFileName(string originalName)
+    {
+        return "compatible_video.mp4";
+    }
+
+    private static string TrimProgressLine(string line)
+    {
+        if (line.Length <= 120)
+            return line;
+        return line[^120..];
+    }
+
+    private static string LastLogLines(string log)
+    {
+        var lines = log.Replace("\r", string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(Environment.NewLine, lines.TakeLast(8));
     }
 
     private void Player_MediaOpened(object sender, RoutedEventArgs e)
     {
+        AppLogger.Info($"VideoMediaOpened id={_item.Id}; duration={(Player.NaturalDuration.HasTimeSpan ? Player.NaturalDuration.TimeSpan.ToString() : "unknown")}");
         if (Player.NaturalDuration.HasTimeSpan)
         {
             PositionSlider.Maximum = Player.NaturalDuration.TimeSpan.TotalSeconds;
@@ -542,13 +813,11 @@ public partial class ViewerWindow : Window
         {
             Player.Position = TimeSpan.Zero;
             Player.Play();
-            _isPlaying = true;
-            PlayButton.Content = "Ⅱ";
+            SetPlaybackState(true);
             return;
         }
 
-        _isPlaying = false;
-        PlayButton.Content = "▶";
+        SetPlaybackState(false);
     }
 
     private void Timer_Tick(object? sender, EventArgs e)
@@ -563,50 +832,128 @@ public partial class ViewerWindow : Window
 
     private void PositionSlider_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (_item.Kind != MediaKind.Video)
+            return;
+
+        _wasPlayingBeforeSeek = _isPlaying;
         _isDraggingSlider = true;
+
+        if (_isPlaying)
+        {
+            Player.Pause();
+            SetPlaybackState(false);
+        }
     }
 
     private void PositionSlider_PreviewMouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (_item.Kind != MediaKind.Video)
+            return;
+
+        SeekVideoToSliderValue(updateFrame: true);
         _isDraggingSlider = false;
-        if (_item.Kind == MediaKind.Video)
-            Player.Position = TimeSpan.FromSeconds(PositionSlider.Value);
+
+        if (_wasPlayingBeforeSeek)
+        {
+            Player.Play();
+            SetPlaybackState(true);
+        }
+        else
+        {
+            Player.Pause();
+            SetPlaybackState(false);
+        }
     }
 
     private void PositionSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_isDraggingSlider && Player.NaturalDuration.HasTimeSpan)
-            TimeText.Text = $"{FormatTime(TimeSpan.FromSeconds(PositionSlider.Value))} / {FormatTime(Player.NaturalDuration.TimeSpan)}";
+        if (_item.Kind != MediaKind.Video || !Player.NaturalDuration.HasTimeSpan)
+            return;
+
+        TimeText.Text = $"{FormatTime(TimeSpan.FromSeconds(PositionSlider.Value))} / {FormatTime(Player.NaturalDuration.TimeSpan)}";
+
+        if (_isDraggingSlider || !_isPlaying)
+            SeekVideoToSliderValue(updateFrame: true);
     }
 
     private void Mute_Click(object sender, RoutedEventArgs e)
     {
-        if (_item.Kind != MediaKind.Video) return;
+        if (_item.Kind != MediaKind.Video || Player == null) return;
+
         _isMuted = !_isMuted;
         Player.IsMuted = _isMuted;
-        MuteButton.Content = _isMuted ? "🔇" : "🔊";
-        MuteButton.ToolTip = _isMuted ? "음소거 해제" : "음소거";
+
+        PersistVideoPlaybackPreferences();
+        UpdateMuteUi();
+        UpdateVolumeUi();
     }
 
     private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (Player == null) return;
-        var volume = Math.Clamp(VolumeSlider.Value / 100.0, 0.0, 1.0);
-        Player.Volume = volume;
-        if (volume > 0)
-            _lastVolume = volume;
-        if (volume <= 0.001)
+        if (_item.Kind != MediaKind.Video || _suppressVolumePersistence || !_videoVolumeSliderInitialized)
+            return;
+
+        var slider = sender as Slider ?? VolumeSlider;
+        if (slider == null) return;
+
+        var volume = Math.Clamp(slider.Value / 100.0, 0.0, 1.0);
+        _lastVolume = volume;
+
+        if (Player != null)
         {
-            _isMuted = true;
-            Player.IsMuted = true;
-            if (MuteButton != null) MuteButton.Content = "🔇";
+            Player.Volume = volume;
+            // Do not change mute state here. When muted, only the volume gauge changes.
+            Player.IsMuted = _isMuted;
         }
-        else if (_isMuted)
+
+        // Save immediately, so the next opened video restores the changed gauge without waiting
+        // for the viewer window to close.
+        _settings.LastVideoVolume = volume;
+        _settings.LastVideoVolumePercent = volume * 100.0;
+        _settings.PlayVideosMuted = _isMuted;
+        _settings.LastVideoRepeatMode = RepeatModeToStorageValue(_repeatMode);
+        AppSettingsService.Save(_settings);
+        VideoPlayerPreferencesService.Save(volume, _isMuted, RepeatModeToStorageValue(_repeatMode));
+
+        if (MuteButton != null)
+            UpdateMuteUi();
+        UpdateVolumeUi();
+    }
+
+    private void SeekVideoToSliderValue(bool updateFrame)
+    {
+        if (_item.Kind != MediaKind.Video || !Player.NaturalDuration.HasTimeSpan)
+            return;
+
+        var seconds = Math.Clamp(PositionSlider.Value, 0.0, Player.NaturalDuration.TimeSpan.TotalSeconds);
+        Player.Position = TimeSpan.FromSeconds(seconds);
+
+        if (updateFrame)
         {
-            _isMuted = false;
-            Player.IsMuted = false;
-            if (MuteButton != null) MuteButton.Content = "🔊";
+            // ScrubbingEnabled=True lets MediaElement repaint the paused frame after seeking.
+            Player.ScrubbingEnabled = true;
+            if (!_wasPlayingBeforeSeek && !_isPlaying)
+                Player.Pause();
         }
+    }
+
+    private void UpdateMuteUi()
+    {
+        if (MuteButton == null)
+            return;
+
+        MuteButton.Content = _isMuted ? "🔇" : "🔊";
+        MuteButton.ToolTip = _isMuted ? "음소거 해제" : "음소거";
+    }
+
+    private void UpdateVolumeUi()
+    {
+        if (VolumeValueText == null)
+            return;
+
+        var volumePercent = (int)Math.Round(_lastVolume * 100.0, MidpointRounding.AwayFromZero);
+        VolumeValueText.Text = $"{volumePercent}%";
+        VolumeValueText.Opacity = _isMuted ? 0.7 : 1.0;
     }
 
     private void RepeatButton_Click(object sender, RoutedEventArgs e)
@@ -618,6 +965,7 @@ public partial class ViewerWindow : Window
     {
         _repeatMode = VideoRepeatMode.None;
         UpdateRepeatUi();
+        PersistVideoPlaybackPreferences();
         RepeatPopup.IsOpen = false;
     }
 
@@ -625,6 +973,7 @@ public partial class ViewerWindow : Window
     {
         _repeatMode = VideoRepeatMode.Current;
         UpdateRepeatUi();
+        PersistVideoPlaybackPreferences();
         RepeatPopup.IsOpen = false;
     }
 
@@ -632,6 +981,7 @@ public partial class ViewerWindow : Window
     {
         _repeatMode = VideoRepeatMode.Playlist;
         UpdateRepeatUi();
+        PersistVideoPlaybackPreferences();
         RepeatPopup.IsOpen = false;
     }
 
@@ -645,9 +995,9 @@ public partial class ViewerWindow : Window
 
         RepeatButton.Content = _repeatMode switch
         {
-            VideoRepeatMode.Current => "현재 반복 ▴",
-            VideoRepeatMode.Playlist => "목록 반복 ▴",
-            _ => "반복 없음 ▴"
+            VideoRepeatMode.Current => "↻ 현재 반복" ,
+            VideoRepeatMode.Playlist => "↻ 목록 반복" ,
+            _ => "반복 없음 ▾"
         };
     }
 
@@ -764,8 +1114,7 @@ public partial class ViewerWindow : Window
             if (_isPlaying)
             {
                 Player.Pause();
-                _isPlaying = false;
-                PlayButton.Content = "▶";
+                SetPlaybackState(false);
             }
 
             var dlg = new VideoThumbnailWindow(temp, _item.OriginalName) { Owner = this };

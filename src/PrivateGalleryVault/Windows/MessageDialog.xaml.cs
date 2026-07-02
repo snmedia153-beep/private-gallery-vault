@@ -1,7 +1,10 @@
+﻿using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using PrivateGalleryVault.Services;
 
 namespace PrivateGalleryVault.Windows;
 
@@ -49,6 +52,7 @@ public partial class MessageDialog : Window
             _ => (Brush)Application.Current.Resources["Accent2"]
         };
         BuildButtons(buttons);
+        TryAddOpenLogFolderButton(message, image);
     }
 
     private MessageDialog(string message, string title, MessageBoxImage image, IReadOnlyList<MessageDialogOption> options)
@@ -72,6 +76,7 @@ public partial class MessageDialog : Window
             _ => (Brush)Application.Current.Resources["Accent2"]
         };
         BuildCustomButtons(options);
+        TryAddOpenLogFolderButton(message, image);
     }
 
     public static MessageBoxResult Show(Window? owner, string message, string title, MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.Information)
@@ -79,7 +84,25 @@ public partial class MessageDialog : Window
         var dlg = new MessageDialog(message, title, buttons, image);
         if (owner != null)
             dlg.Owner = owner;
-        dlg.ShowDialog();
+
+        try
+        {
+            dlg.ShowDialog();
+        }
+        catch (InvalidOperationException ex)
+        {
+            AppLogger.Warn($"MessageDialog.Show skipped because WPF dispatcher/window state is not modal-ready. title={title}; message={ex.Message}");
+            try
+            {
+                if (dlg.IsVisible)
+                    dlg.Close();
+            }
+            catch
+            {
+                // Ignore secondary close failures in crash/error paths.
+            }
+        }
+
         return dlg._result == MessageBoxResult.None ? MessageBoxResult.Cancel : dlg._result;
     }
 
@@ -88,7 +111,25 @@ public partial class MessageDialog : Window
         var dlg = new MessageDialog(message, title, image, options);
         if (owner != null)
             dlg.Owner = owner;
-        dlg.ShowDialog();
+
+        try
+        {
+            dlg.ShowDialog();
+        }
+        catch (InvalidOperationException ex)
+        {
+            AppLogger.Warn($"MessageDialog.ShowOptions skipped because WPF dispatcher/window state is not modal-ready. title={title}; message={ex.Message}");
+            try
+            {
+                if (dlg.IsVisible)
+                    dlg.Close();
+            }
+            catch
+            {
+                // Ignore secondary close failures in crash/error paths.
+            }
+        }
+
         return string.IsNullOrWhiteSpace(dlg._customResult) ? "cancel" : dlg._customResult;
     }
 
@@ -143,7 +184,8 @@ public partial class MessageDialog : Window
         }
         else
         {
-            // Style=null을 로컬 값으로 남기면 일부 WPF 테마에서 암시적 다크 버튼 스타일이 적용되지 않습니다.
+            // Do not leave Style=null as a local value; that bypasses the implicit dark Button style
+            // on some WPF themes and produces a light gray unreadable confirmation button.
             if (Application.Current.TryFindResource(typeof(Button)) is Style primaryStyle)
                 button.Style = primaryStyle;
             button.Background = (Brush)Application.Current.Resources["Accent"];
@@ -153,8 +195,7 @@ public partial class MessageDialog : Window
         button.Click += (_, _) =>
         {
             _result = result;
-            DialogResult = true;
-            Close();
+            CloseSafely(true);
         };
         ButtonPanel.Children.Add(button);
     }
@@ -188,10 +229,77 @@ public partial class MessageDialog : Window
         button.Click += (_, _) =>
         {
             _customResult = option.Result;
-            DialogResult = true;
-            Close();
+            CloseSafely(true);
         };
         ButtonPanel.Children.Add(button);
+    }
+
+    private void CloseSafely(bool? dialogResult)
+    {
+        try
+        {
+            // DialogResult can be set only while the window is displayed through ShowDialog().
+            // Some shutdown/error paths can make the dialog behave like a normal window,
+            // so closing must never crash the app.
+            DialogResult = dialogResult;
+        }
+        catch (InvalidOperationException ex)
+        {
+            AppLogger.Warn("MessageDialog closed without modal DialogResult. " + ex.Message);
+        }
+
+        if (IsVisible)
+            Close();
+    }
+
+    private void TryAddOpenLogFolderButton(string message, MessageBoxImage image)
+    {
+        var hasLogMessage = message.Contains("로그", StringComparison.OrdinalIgnoreCase)
+            || message.Contains(AppLogger.LogDirectory, StringComparison.OrdinalIgnoreCase);
+        if (image != MessageBoxImage.Error && !hasLogMessage)
+            return;
+
+        var button = new Button
+        {
+            Content = "로그 폴더 열기",
+            MinWidth = 138,
+            MinHeight = 38,
+            Margin = new Thickness(0, 0, 0, 0),
+            Foreground = Brushes.White,
+            FontWeight = FontWeights.SemiBold,
+            Style = (Style)Application.Current.Resources["GhostButton"]
+        };
+
+        button.Click += (_, _) => OpenLogFolder();
+        ButtonPanel.Children.Insert(0, button);
+        NormalizeButtonMargins();
+    }
+
+    private static void OpenLogFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(AppLogger.LogDirectory);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = AppLogger.LogDirectory,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("로그 폴더를 열 수 없습니다.\n\n" + ex.Message,
+                "로그 폴더", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void NormalizeButtonMargins()
+    {
+        for (var i = 0; i < ButtonPanel.Children.Count; i++)
+        {
+            if (ButtonPanel.Children[i] is FrameworkElement element)
+                element.Margin = new Thickness(i == 0 ? 0 : 10, 0, 0, 0);
+        }
     }
 
     private void DialogChrome_MouseDown(object sender, MouseButtonEventArgs e)
@@ -203,7 +311,6 @@ public partial class MessageDialog : Window
     private void Close_Click(object sender, RoutedEventArgs e)
     {
         _result = MessageBoxResult.Cancel;
-        DialogResult = false;
-        Close();
+        CloseSafely(false);
     }
 }

@@ -78,11 +78,11 @@ public static class FileCryptoService
         using var reader = new BinaryReader(input, Encoding.UTF8, leaveOpen: true);
         var magic = reader.ReadBytes(4);
         if (!magic.SequenceEqual(Magic))
-            throw new CryptographicException("지원하지 않는 보관함 파일 형식입니다.");
+            throw new CryptographicException("지원하지 않는 Vault 파일 형식입니다.");
 
         var version = reader.ReadInt32();
         if (version != Version)
-            throw new CryptographicException("지원하지 않는 보관함 파일 버전입니다.");
+            throw new CryptographicException("지원하지 않는 Vault 파일 버전입니다.");
 
         _ = reader.ReadInt32(); // chunk size
         _ = reader.ReadInt64(); // original length

@@ -1,5 +1,8 @@
+using System;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
 using PrivateGalleryVault.Services;
 
 namespace PrivateGalleryVault.Windows;
@@ -20,24 +23,40 @@ public partial class SetupVaultWindow : Window
     private string CurrentPassword => ShowPasswordCheck.IsChecked == true ? PasswordTextBox.Text : PasswordBox.Password;
     private string CurrentConfirm => ShowPasswordCheck.IsChecked == true ? ConfirmTextBox.Text : ConfirmBox.Password;
 
+    private Control ActivePasswordControl => ShowPasswordCheck.IsChecked == true ? PasswordTextBox : PasswordBox;
+    private Control ActiveConfirmControl => ShowPasswordCheck.IsChecked == true ? ConfirmTextBox : ConfirmBox;
+
     private void Create_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            MessageText.Text = string.Empty;
             var password = CurrentPassword;
             var confirm = CurrentConfirm;
 
-            if (password != confirm)
+            if (string.IsNullOrWhiteSpace(password))
             {
-                MessageText.Text = "비밀번호 확인이 일치하지 않습니다.";
+                ShowValidationAlert("마스터 비밀번호를 입력해 주세요.", ActivePasswordControl);
                 return;
             }
+
             if (password.Length < 8)
             {
-                MessageText.Text = "비밀번호는 최소 8자 이상으로 설정하세요.";
+                ShowValidationAlert("비밀번호는 최소 8자 이상으로 설정하세요.", ActivePasswordControl);
                 return;
             }
+
+            if (string.IsNullOrWhiteSpace(confirm))
+            {
+                ShowValidationAlert("비밀번호 확인을 입력해 주세요.", ActiveConfirmControl);
+                return;
+            }
+
+            if (password != confirm)
+            {
+                ShowValidationAlert("비밀번호 확인이 일치하지 않습니다.", ActiveConfirmControl);
+                return;
+            }
+
             if (KeyDerivationService.LooksWeak(password))
             {
                 var result = MessageDialog.Show(this, "비밀번호가 다소 약합니다. 영문/숫자/기호 조합을 권장합니다. 그래도 계속할까요?", "약한 비밀번호", MessageBoxButton.YesNo, MessageBoxImage.Warning);
@@ -51,7 +70,7 @@ public partial class SetupVaultWindow : Window
         }
         catch (Exception ex)
         {
-            MessageText.Text = ex.Message;
+            MessageDialog.Show(this, ex.Message, "Vault 생성 실패", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -67,7 +86,7 @@ public partial class SetupVaultWindow : Window
         UpdateStrength();
     }
 
-    private void VisiblePassword_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    private void VisiblePassword_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_syncing) return;
         UpdateStrength();
@@ -116,5 +135,24 @@ public partial class SetupVaultWindow : Window
             3 => "좋습니다. 12자 이상이면 더 안전합니다.",
             _ => "강력한 비밀번호입니다."
         };
+    }
+
+    private void ShowValidationAlert(string message, Control focusTarget)
+    {
+        MessageDialog.Show(this, message, "입력 오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            focusTarget.Focus();
+            switch (focusTarget)
+            {
+                case TextBox textBox:
+                    textBox.SelectAll();
+                    break;
+                case PasswordBox passwordBox:
+                    passwordBox.SelectAll();
+                    break;
+            }
+        }, DispatcherPriority.Input);
     }
 }

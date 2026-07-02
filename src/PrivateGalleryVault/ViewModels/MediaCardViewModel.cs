@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media.Imaging;
 using PrivateGalleryVault.Models;
+using PrivateGalleryVault.Services;
 
 namespace PrivateGalleryVault.ViewModels;
 
@@ -31,8 +32,12 @@ public sealed class MediaCardViewModel : INotifyPropertyChanged
     };
 
     public string FavoriteMark => Item.Favorite ? "★" : string.Empty;
+    public bool IsSecuritySensitive => MediaVaultService.IsSecuritySensitiveExtension(Item.Extension) || MediaVaultService.IsSecuritySensitiveFile(Item.OriginalName);
+    public string SecurityBadgeText => IsSecuritySensitive ? "실행 주의" : string.Empty;
+    public string SecurityWarningText => IsSecuritySensitive ? MediaVaultService.GetSecurityWarningText(Item) : string.Empty;
     public string SizeText => FormatBytes(Item.SizeBytes);
     public string CreatedText => Item.CreatedUtc.ToLocalTime().ToString("yyyy.MM.dd");
+    public string LocationText { get; }
     public string DetailText
     {
         get
@@ -47,10 +52,11 @@ public sealed class MediaCardViewModel : INotifyPropertyChanged
         }
     }
 
-    public MediaCardViewModel(MediaItem item, BitmapImage thumbnail)
+    public MediaCardViewModel(MediaItem item, BitmapImage thumbnail, string? locationText = null)
     {
         Item = item;
         Thumbnail = thumbnail;
+        LocationText = string.IsNullOrWhiteSpace(locationText) ? string.Empty : locationText.Trim();
     }
 
     private static string FormatBytes(long bytes)

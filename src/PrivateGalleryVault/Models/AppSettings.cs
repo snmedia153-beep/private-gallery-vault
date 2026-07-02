@@ -8,6 +8,9 @@ public sealed class AppSettings
     public bool CleanTempOnExit { get; set; } = true;
     public bool DeleteTempMediaAfterPlayback { get; set; } = true;
     public bool PlayVideosMuted { get; set; } = false;
+    public double LastVideoVolume { get; set; } = 0.75;
+    public double LastVideoVolumePercent { get; set; } = 75.0;
+    public string LastVideoRepeatMode { get; set; } = "none";
     public string InstantLockKey { get; set; } = string.Empty;
     public int ItemsPerPage { get; set; } = 72;
     public int MediaGridColumns { get; set; } = 3;

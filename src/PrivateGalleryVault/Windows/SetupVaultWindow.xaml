@@ -77,39 +77,35 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,8,0">
-                        <StackPanel>
-                            <TextBlock Text="새 비밀번호" FontWeight="SemiBold" Margin="0,0,0,8" />
-                            <Grid>
-                                <PasswordBox x:Name="PasswordBox" Height="42" PasswordChanged="PasswordBox_PasswordChanged" />
-                                <TextBox x:Name="PasswordTextBox" Height="42" Visibility="Collapsed" TextChanged="VisiblePassword_TextChanged" />
-                            </Grid>
+                    <StackPanel Grid.Row="1">
+                        <TextBlock Text="새 비밀번호" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <Grid>
+                            <PasswordBox x:Name="PasswordBox" Height="42" PasswordChanged="PasswordBox_PasswordChanged" />
+                            <TextBox x:Name="PasswordTextBox" Height="42" Visibility="Collapsed" TextChanged="VisiblePassword_TextChanged" />
+                        </Grid>
 
-                            <TextBlock Text="비밀번호 확인" FontWeight="SemiBold" Margin="0,14,0,8" />
-                            <Grid>
-                                <PasswordBox x:Name="ConfirmBox" Height="42" PasswordChanged="PasswordBox_PasswordChanged" />
-                                <TextBox x:Name="ConfirmTextBox" Height="42" Visibility="Collapsed" TextChanged="VisiblePassword_TextChanged" />
-                            </Grid>
+                        <TextBlock Text="비밀번호 확인" FontWeight="SemiBold" Margin="0,12,0,8" />
+                        <Grid>
+                            <PasswordBox x:Name="ConfirmBox" Height="42" PasswordChanged="PasswordBox_PasswordChanged" />
+                            <TextBox x:Name="ConfirmTextBox" Height="42" Visibility="Collapsed" TextChanged="VisiblePassword_TextChanged" />
+                        </Grid>
 
-                            <TextBlock Text="힌트 (선택)" FontWeight="SemiBold" Margin="0,14,0,8" />
-                            <TextBox x:Name="HintBox" Height="42" ToolTip="비밀번호를 직접 저장하지 않는 힌트입니다." />
+                        <TextBlock Text="힌트 (선택)" FontWeight="SemiBold" Margin="0,12,0,8" />
+                        <TextBox x:Name="HintBox" Height="42" ToolTip="비밀번호를 직접 저장하지 않는 힌트입니다." />
 
-                            <Grid Margin="0,16,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="비밀번호 강도" FontWeight="SemiBold" />
-                                <TextBlock x:Name="StrengthText" Grid.Column="1" Text="0 / 4" Foreground="{StaticResource SubText}" />
-                            </Grid>
-                            <ProgressBar x:Name="StrengthBar" Height="7" Minimum="0" Maximum="4" Value="0" />
-                            <TextBlock x:Name="StrengthHintText" Text="영문, 숫자, 특수문자를 조합해 8자 이상으로 설정하세요." Foreground="{StaticResource SubText}" Margin="0,8,0,0" TextWrapping="Wrap" />
+                        <Grid Margin="0,14,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="비밀번호 강도" FontWeight="SemiBold" />
+                            <TextBlock x:Name="StrengthText" Grid.Column="1" Text="0 / 4" Foreground="{StaticResource SubText}" />
+                        </Grid>
+                        <ProgressBar x:Name="StrengthBar" Height="7" Minimum="0" Maximum="4" Value="0" />
+                        <TextBlock x:Name="StrengthHintText" Text="영문, 숫자, 특수문자를 조합해 8자 이상으로 설정하세요." Foreground="{StaticResource SubText}" Margin="0,8,0,0" TextWrapping="Wrap" />
 
-                            <CheckBox x:Name="ShowPasswordCheck" Content="비밀번호 표시" Margin="0,14,0,0" Checked="ShowPasswordCheck_Changed" Unchecked="ShowPasswordCheck_Changed" />
-
-                            <TextBlock x:Name="MessageText" Foreground="{StaticResource Danger}" TextWrapping="Wrap" Margin="0,12,0,0" MinHeight="24" />
-                        </StackPanel>
-                    </ScrollViewer>
+                        <CheckBox x:Name="ShowPasswordCheck" Content="비밀번호 표시" Margin="0,12,0,0" Checked="ShowPasswordCheck_Changed" Unchecked="ShowPasswordCheck_Changed" />
+                    </StackPanel>
 
                     <StackPanel Grid.Row="2" Margin="0,12,0,0">
                         <Border Height="1" Background="{StaticResource Stroke}" Margin="0,0,0,16" />

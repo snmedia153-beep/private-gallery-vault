@@ -216,11 +216,16 @@ public static class ThumbnailService
             var duration = player.NaturalDuration.HasTimeSpan ? player.NaturalDuration.TimeSpan : TimeSpan.Zero;
             capturedAt = ResolveCapturePosition(duration, preferredPosition);
 
-            player.Position = capturedAt;
-            player.Play();
-            DoEventsFor(650);
             player.Pause();
-            DoEventsFor(120);
+            player.Position = capturedAt;
+            DoEventsFor(220);
+
+            // WPF MediaPlayer는 seek 직후 DrawVideo가 이전 프레임을 그릴 수 있습니다.
+            // 짧게 재생한 뒤 멈춰 실제 요청 지점 주변 프레임이 렌더링되도록 합니다.
+            player.Play();
+            DoEventsFor(180);
+            player.Pause();
+            DoEventsFor(180);
 
             naturalWidth = player.NaturalVideoWidth;
             naturalHeight = player.NaturalVideoHeight;
